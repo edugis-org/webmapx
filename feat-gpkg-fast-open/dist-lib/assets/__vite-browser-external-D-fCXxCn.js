@@ -1,0 +1,1 @@
+import{t as e}from"./spatial.worker-DP6eYsks.js";var t=e(((e,t)=>{t.exports={}}));export default t();

@@ -1,0 +1,921 @@
+{
+  "version": 0,
+  "project": {
+    "id": "surfen",
+    "title": "Surfen",
+    "description": "Surf spots, coast types, bathymetry and weather"
+  },
+  "map": {
+    "label": "Surfen",
+    "center": [
+      64.19112921221495,
+      8.616820146909731
+    ],
+    "zoom": 1.4250490620778615,
+    "type": "maplibre",
+    "style": {
+      "version": 8,
+      "sources": {},
+      "layers": [],
+      "glyphs": "https://tiles.edugis.nl/glyphs/{fontstack}/{range}.pbf",
+      "sprite": "https://openmaptiles.github.io/osm-bright-gl-style/sprite"
+    }
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "esriworldimagery-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        ],
+        "tileSize": 256,
+        "maxzoom": 22,
+        "attribution": "ESRI World Imagery"
+      },
+      {
+        "id": "satellite-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.webp?access_token={key-mapbox}"
+        ],
+        "tileSize": 256,
+        "attribution": "Mapbox World Imagery"
+      },
+      {
+        "id": "bingmapaerial-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://ecn.t0.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=12327",
+          "https://ecn.t1.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=12327",
+          "https://ecn.t2.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=12327",
+          "https://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=12327"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "attribution": "© 2024 Microsoft Corporation|© 2024 Maxar|©CNES (2024) Distribution Airbus DS|© 2024 TMAP MOBILITY|Earthstar Geographics  SIO"
+      },
+      {
+        "id": "openstreetmap-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/about\" target=\"copyright\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "openstreetmapgray-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osmgrayscale_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/about\" target=\"copyright\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "bingmaproad-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://ecn.t0.tiles.virtualearth.net/tiles/r{quadkey}.jpeg?g=12327&mkt=nl-BE&shading=hill",
+          "https://ecn.t1.tiles.virtualearth.net/tiles/r{quadkey}.jpeg?g=12327&mkt=nl-BE&shading=hill",
+          "https://ecn.t2.tiles.virtualearth.net/tiles/r{quadkey}.jpeg?g=12327&mkt=nl-BE&shading=hill",
+          "https://ecn.t3.tiles.virtualearth.net/tiles/r{quadkey}.jpeg?g=12327&mkt=nl-BE&shading=hill"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "© 2022 Microsoft Corporation|© 2022 TomTom|© 2022 Zenrin"
+      },
+      {
+        "id": "bingmaphybrid-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://ecn.t0.tiles.virtualearth.net/tiles/h{quadkey}.jpeg?g=12327&mkt=nl-BE",
+          "https://ecn.t1.tiles.virtualearth.net/tiles/h{quadkey}.jpeg?g=12327&mkt=nl-BE",
+          "https://ecn.t2.tiles.virtualearth.net/tiles/h{quadkey}.jpeg?g=12327&mkt=nl-BE",
+          "https://ecn.t3.tiles.virtualearth.net/tiles/h{quadkey}.jpeg?g=12327&mkt=nl-BE"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "attribution": "© 2023 Microsoft Corporation|© 2023 Maxar|©CNES (2023) Distribution Airbus DS|© 2023 TMAP MOBILITY|Earthstar Geographics  SIO|© 2023 TomTom|© 2023 Zenrin"
+      },
+      {
+        "id": "c132ac7b-547f-4ead-b5f5-9068d63e01d0-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.emodnet-bathymetry.eu/latest/mean_rainbowcolour/web_mercator/{z}/{x}/{y}.png"
+        ],
+        "minzoom": 0,
+        "maxzoom": 22
+      },
+      {
+        "id": "3bc796a2-c8d7-4376-b18d-27ff61c59958-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://wms.gebco.net/2025/mapserv?REQUEST=GETMAP&SERVICE=WMS&VERSION=1.1.1&TRANSPARENT=true&LAYERS=GEBCO_2025&FORMAT=image%2Fpng&STYLES=&SRS=EPSG%3A3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512"
+        ],
+        "minzoom": 0,
+        "maxzoom": 22
+      },
+      {
+        "id": "53cff7ae-4c70-4b04-824a-afefe3c845cd-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://map.edugis.nl/cgi-bin/qgis_mapserv.fcgi?MAP=data%2Feduqgis%2Ffiles%2Fsurf%2Fcurrents4.qgz&service=WMS&version=1.1.1&request=GetMap&layers=Currents&SRS=EPSG:3857&transparent=true&format=image/png&BBOX={bbox-epsg-3857}&width=256&height=256&styles="
+        ],
+        "tileSize": 256,
+        "minzoom": 2,
+        "maxzoom": 5,
+        "bounds": [
+          -179,
+          -72,
+          179,
+          80
+        ],
+        "attribution": ""
+      },
+      {
+        "id": "openweathermaptemperature-new-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tile.openweathermap.org/map/temp/{z}/{x}/{y}.png?appid={key-openweathermap}"
+        ],
+        "tileSize": 256,
+        "attribution": "<a href=\"https://openweathermap.org\" target=\"_blank\">OpenWeatherMap</a>"
+      },
+      {
+        "id": "openweathermapwind-new-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid={key-openweathermap}&opacity=0.7"
+        ],
+        "tileSize": 256,
+        "attribution": "<a href=\"https://openweathermap.org\" target=\"_blank\">OpenWeatherMap</a>"
+      }
+    ],
+    "layers": [
+      {
+        "id": "esriworldimagery",
+        "title": "Wereld (ESRI World Imagery)",
+        "type": "raster",
+        "source": "esriworldimagery-source",
+        "metadata": {
+          "swatch": "#596138",
+          "reference": true,
+          "title": "Wereld (ESRI World Imagery)",
+          "userlayer": true,
+          "label": "Wereld (ESRI World Imagery)"
+        }
+      },
+      {
+        "id": "satellite",
+        "title": "Wereld (Mapbox)",
+        "type": "raster",
+        "source": "satellite-source",
+        "metadata": {
+          "title": "Wereld (Mapbox)",
+          "reference": true,
+          "userlayer": true,
+          "label": "Wereld (Mapbox)"
+        }
+      },
+      {
+        "id": "bingmapaerial",
+        "title": "Wereld (Bing)",
+        "type": "raster",
+        "source": "bingmapaerial-source",
+        "metadata": {
+          "swatch": "#606649",
+          "reference": true,
+          "bing": true,
+          "title": "Wereld (Bing)",
+          "userlayer": true,
+          "label": "Wereld (Bing)"
+        }
+      },
+      {
+        "id": "openstreetmap",
+        "title": "Standaard (OSM)",
+        "type": "raster",
+        "source": "openstreetmap-source",
+        "metadata": {
+          "swatch": "#dfdfd2",
+          "legendurl": "https://mapserver.edugis.nl/legends/wereld/osm_logo.png",
+          "title": "Standaard (OSM)",
+          "reference": true,
+          "label": "Standaard (OSM)"
+        }
+      },
+      {
+        "id": "openstreetmapgray",
+        "title": "Grijs (OSM)",
+        "type": "raster",
+        "source": "openstreetmapgray-source",
+        "metadata": {
+          "swatch": "#dcdcdc",
+          "legendurl": "https://mapserver.edugis.nl/legends/wereld/osm_logo.png",
+          "title": "Grijs (OSM)",
+          "reference": true,
+          "label": "Grijs (OSM)"
+        }
+      },
+      {
+        "id": "osmbright",
+        "title": "Helder (OSM)",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/styles/openmaptiles/osmbright.json",
+        "metadata": {
+          "swatch": "#f8f4f0",
+          "reference": true,
+          "title": "Helder (OSM)",
+          "styleid": "OsmBright",
+          "styletitle": "Helder (OSM)",
+          "label": "Helder (OSM)"
+        }
+      },
+      {
+        "id": "bingmaproad",
+        "title": "Standaard (Bing)",
+        "type": "raster",
+        "source": "bingmaproad-source",
+        "metadata": {
+          "swatch": "#dbdbd4",
+          "reference": true,
+          "bing": true,
+          "title": "Standaard (Bing)",
+          "userlayer": true,
+          "label": "Standaard (Bing)"
+        }
+      },
+      {
+        "id": "bingmaphybrid",
+        "title": "Hybride (Bing)",
+        "type": "raster",
+        "source": "bingmaphybrid-source",
+        "metadata": {
+          "swatch": "#6a6c58",
+          "reference": true,
+          "bing": true,
+          "title": "Bing | Combinatie",
+          "userlayer": true,
+          "label": "Hybride (Bing)"
+        }
+      },
+      {
+        "id": "c132ac7b-547f-4ead-b5f5-9068d63e01d0",
+        "title": "Bathymetrie Europa",
+        "type": "raster",
+        "source": "c132ac7b-547f-4ead-b5f5-9068d63e01d0-source",
+        "metadata": {
+          "swatch": "#d1b11b",
+          "wmts": true,
+          "title": "Bathymetrie Europa",
+          "abstract": "Bathymetrie Europa",
+          "label": "Bathymetrie Europa"
+        }
+      },
+      {
+        "id": "3bc796a2-c8d7-4376-b18d-27ff61c59958",
+        "title": "Bathymetrie Wereld",
+        "type": "raster",
+        "source": "3bc796a2-c8d7-4376-b18d-27ff61c59958-source",
+        "metadata": {
+          "swatch": "#a0be8d",
+          "wms": true,
+          "title": "Bathymetrie Wereld",
+          "abstract": "Bathymetrie Wereld",
+          "userlayer": true,
+          "label": "Bathymetrie Wereld"
+        }
+      },
+      {
+        "id": "53cff7ae-4c70-4b04-824a-afefe3c845cd",
+        "title": "Oceaanstromingen",
+        "type": "raster",
+        "source": "53cff7ae-4c70-4b04-824a-afefe3c845cd-source",
+        "minzoom": 2,
+        "maxzoom": 5,
+        "metadata": {
+          "swatch": "#fefbfa",
+          "title": "Oceaanstromingen",
+          "legendurl": "https://map.edugis.nl/cgi-bin/qgis_mapserv.fcgi?MAP=data%2Feduqgis%2Ffiles%2Fsurf%2Fcurrents4.qgz&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&LAYER=Currents&FORMAT=image/png&STYLE=standaard",
+          "abstract": "",
+          "getFeatureInfoUrl": "https://map.edugis.nl/cgi-bin/qgis_mapserv.fcgi?MAP=data%2Feduqgis%2Ffiles%2Fsurf%2Fcurrents4.qgz&service=WMS&version=1.1.1&request=GetFeatureInfo&layers=Currents&query_layers=Currents",
+          "getFeatureInfoFormat": "application/json",
+          "label": "Oceaanstromingen"
+        }
+      },
+      {
+        "id": "openweathermaptemperature-new",
+        "title": "Temperatuur",
+        "type": "raster",
+        "source": "openweathermaptemperature-new-source",
+        "metadata": {
+          "legendurl": "https://openweathermap.org/img/a/TT.png",
+          "getFeatureInfoUrl": "https://api.openweathermap.org/data/2.5/weather?appid={key-openweathermap}&lat={latitude}&lon={longitude}&lang=nl&units=metric",
+          "deniedattributes": [
+            "weather-icon"
+          ],
+          "attributes": {
+            "translations": [
+              {
+                "name": "temp",
+                "translation": "temperatuur",
+                "unit": " Â°C"
+              },
+              {
+                "name": "humidity",
+                "translation": "luchtvochtigheid",
+                "unit": " %"
+              },
+              {
+                "name": "feels_like",
+                "translation": "gevoelstemperatuur",
+                "unit": " Â°C"
+              },
+              {
+                "name": "temp_max",
+                "translation": "maximum temperatuur",
+                "unit": " Â°C"
+              },
+              {
+                "name": "temp_min",
+                "translation": "minimum temperatuur",
+                "unit": " Â°C"
+              },
+              {
+                "name": "name",
+                "translation": "locatie"
+              },
+              {
+                "name": "wind-speed",
+                "translation": "wind",
+                "unit": " meter/seconde"
+              },
+              {
+                "name": "wind-deg",
+                "translation": "windrichting tov N",
+                "unit": " Â°"
+              },
+              {
+                "name": "visibility",
+                "translation": "zicht",
+                "unit": " meter"
+              },
+              {
+                "name": "pressure",
+                "translation": "luchtdruk",
+                "unit": " hPa"
+              },
+              {
+                "name": "weather-description",
+                "translation": "weer"
+              },
+              {
+                "name": "rain",
+                "translation": "neerslag",
+                "unit": " mm/uur"
+              }
+            ]
+          },
+          "timeinterval": 300000,
+          "title": "Temperatuur",
+          "label": "Temperatuur"
+        }
+      },
+      {
+        "id": "openweathermapwind-new",
+        "title": "Windsnelheid",
+        "type": "raster",
+        "source": "openweathermapwind-new-source",
+        "metadata": {
+          "legendurl": "",
+          "timeinterval": 300000,
+          "getFeatureInfoUrl": "https://api.openweathermap.org/data/2.5/weather?appid={key-openweathermap}&lat={latitude}&lon={longitude}&lang=nl&units=metric",
+          "deniedattributes": [
+            "weather-icon"
+          ],
+          "attributes": {
+            "translations": [
+              {
+                "name": "temp",
+                "translation": "temperatuur",
+                "unit": " Â°C"
+              },
+              {
+                "name": "humidity",
+                "translation": "luchtvochtigheid",
+                "unit": " %"
+              },
+              {
+                "name": "feels_like",
+                "translation": "gevoelstemperatuur",
+                "unit": " Â°C"
+              },
+              {
+                "name": "temp_max",
+                "translation": "maximum temperatuur",
+                "unit": " Â°C"
+              },
+              {
+                "name": "temp_min",
+                "translation": "minimum temperatuur",
+                "unit": " Â°C"
+              },
+              {
+                "name": "name",
+                "translation": "locatie"
+              },
+              {
+                "name": "wind-speed",
+                "translation": "wind",
+                "unit": " meter/seconde"
+              },
+              {
+                "name": "wind-deg",
+                "translation": "windrichting tov N",
+                "unit": " Â°"
+              },
+              {
+                "name": "visibility",
+                "translation": "zicht",
+                "unit": " meter"
+              },
+              {
+                "name": "pressure",
+                "translation": "luchtdruk",
+                "unit": " hPa"
+              },
+              {
+                "name": "weather-description",
+                "translation": "weer"
+              },
+              {
+                "name": "rain",
+                "translation": "neerslag",
+                "unit": " mm/uur"
+              }
+            ]
+          },
+          "title": "Windsnelheid",
+          "label": "Windsnelheid"
+        }
+      },
+      {
+        "id": "custom-style",
+        "title": "Surfspots",
+        "type": "style",
+        "sources": {
+          "pointSource": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/surf/Surfspots_punten.geo.json",
+            "attribution": "Bron: Josien Snijders "
+          },
+          "polygonSource": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/surf/Surfspots_vlakken.geo.json",
+            "attribution": "Bron: Josien Snijders"
+          },
+          "labelSource": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/surf/Surfspots_punten.geo.json",
+            "attribution": "Bron: Josien Snijders "
+          }
+        },
+        "layers": [
+          {
+            "id": "circleLayer",
+            "type": "circle",
+            "metadata": {
+              "title": "Surfspots",
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name",
+                    "translation": "naam"
+                  }
+                ]
+              },
+              "styletitle": "Surfspots",
+              "styleid": "custom_style",
+              "userlayer": true
+            },
+            "source": "pointSource",
+            "paint": {
+              "circle-color": "#FA0",
+              "circle-radius": 10,
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "#FFF"
+            }
+          },
+          {
+            "id": "polygonLayer",
+            "type": "fill",
+            "metadata": {
+              "title": "Breakzone",
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name",
+                    "translation": "naam"
+                  }
+                ]
+              },
+              "styletitle": "Surfspots",
+              "styleid": "custom_style",
+              "userlayer": true
+            },
+            "source": "polygonSource",
+            "paint": {
+              "fill-color": "#ccc",
+              "fill-opacity": 0.65,
+              "fill-outline-color": "#444"
+            }
+          },
+          {
+            "id": "labelLayer",
+            "type": "symbol",
+            "metadata": {
+              "title": "Labels",
+              "styletitle": "Labels",
+              "styleid": "custom_style",
+              "userlayer": true
+            },
+            "source": "labelSource",
+            "layout": {
+              "text-field": "{Surfspot}",
+              "text-font": [
+                "Open Sans Semibold",
+                "Arial Unicode MS Bold"
+              ],
+              "text-offset": [
+                0,
+                -1.5
+              ],
+              "text-anchor": "center",
+              "text-size": 16,
+              "text-allow-overlap": false,
+              "text-ignore-placement": false,
+              "visibility": "visible"
+            },
+            "paint": {
+              "text-color": "rgba(0,0,0)",
+              "text-halo-color": "rgba(255,255,255,1)",
+              "text-halo-width": 3,
+              "text-halo-blur": 0
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Surfspots",
+          "styleid": "custom_style",
+          "styletitle": "Surfspots",
+          "label": "Surfspots"
+        }
+      },
+      {
+        "id": "344a9408-9ac4-4f58-a068-c4ab0737f994",
+        "title": "Kusttypen",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "data/surf/kusttypen.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "344a9408-9ac4-4f58-a068-c4ab0737f994-layer",
+            "type": "line",
+            "source": "source",
+            "paint": {
+              "line-color": [
+                "match",
+                [
+                  "get",
+                  "Kusttype"
+                ],
+                1,
+                "#e6194b",
+                2,
+                "#3cb44b",
+                3,
+                "#4363d8",
+                4,
+                "#f58231",
+                5,
+                "#911eb4",
+                6,
+                "#42d4f4",
+                7,
+                "#f032e6",
+                "#aaaaaa"
+              ],
+              "line-width": 2
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Kusttypen",
+          "abstract": "informatie over de laag",
+          "userlayer": true,
+          "cansave": true,
+          "visible": true,
+          "attributes": {
+            "translations": [
+              {
+                "name": "Kusttype",
+                "valuemap": [
+                  {
+                    "value": 0,
+                    "label": "Gletsjer-/gesloten bekkenkust"
+                  },
+                  {
+                    "value": 1,
+                    "label": "Deltakust"
+                  },
+                  {
+                    "value": 2,
+                    "label": "Getijdenkust"
+                  },
+                  {
+                    "value": 3,
+                    "label": "Lagunekust"
+                  },
+                  {
+                    "value": 4,
+                    "label": "Fjordkust"
+                  },
+                  {
+                    "value": 5,
+                    "label": "Grote riviermonding"
+                  },
+                  {
+                    "value": 51,
+                    "label": "Getijdendelta"
+                  },
+                  {
+                    "value": 6,
+                    "label": "Karstkust"
+                  },
+                  {
+                    "value": 7,
+                    "label": "Arheïsch drooggebied"
+                  }
+                ],
+                "translation": "Kusttype"
+              }
+            ]
+          },
+          "label": "Kusttypen"
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeBackground": "esriworldimagery",
+    "activeLayers": [
+      {
+        "ref": "esriworldimagery",
+        "visible": true
+      },
+      {
+        "ref": "3bc796a2-c8d7-4376-b18d-27ff61c59958",
+        "visible": true
+      },
+      {
+        "ref": "custom-style",
+        "visible": true
+      }
+    ],
+    "activeExclusiveLayers": {
+      "basemap": "esriworldimagery"
+    }
+  },
+  "tools": {
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "panel": {
+        "enabled": true,
+        "position": "after"
+      },
+      "items": [
+        {
+          "id": "search",
+          "type": "search",
+          "enabled": true,
+          "title": "Search",
+          "provider": "nominatim",
+          "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim"
+        },
+        {
+          "id": "layers",
+          "type": "layerTree",
+          "enabled": true,
+          "title": "Catalog",
+          "tree": [
+            {
+              "label": "Achtergrondlagen",
+              "children": [
+                {
+                  "label": "Luchtfoto- en satellietachtergrond",
+                  "separator": true
+                },
+                {
+                  "label": "Wereld (ESRI World Imagery)",
+                  "layerId": "esriworldimagery",
+                  "checked": true,
+                  "selectionGroup": "basemap"
+                },
+                {
+                  "label": "Wereld (Mapbox)",
+                  "layerId": "satellite",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Wereld (Bing)",
+                  "layerId": "bingmapaerial",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Topografische achtergrondlagen",
+                  "separator": true
+                },
+                {
+                  "label": "Standaard (OSM)",
+                  "layerId": "openstreetmap",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Grijs (OSM)",
+                  "layerId": "openstreetmapgray",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Helder (OSM)",
+                  "layerId": "osmbright",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Standaard (Bing)",
+                  "layerId": "bingmaproad",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Hybride (Bing)",
+                  "layerId": "bingmaphybrid",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                }
+              ],
+              "selectionMode": "single",
+              "selectionGroup": "basemap",
+              "allowNone": false
+            },
+            {
+              "label": "Bathymetrie Europa",
+              "layerId": "c132ac7b-547f-4ead-b5f5-9068d63e01d0"
+            },
+            {
+              "label": "Bathymetrie Wereld",
+              "layerId": "3bc796a2-c8d7-4376-b18d-27ff61c59958",
+              "checked": true
+            },
+            {
+              "label": "Oceaanstromingen",
+              "layerId": "53cff7ae-4c70-4b04-824a-afefe3c845cd"
+            },
+            {
+              "label": "Temperatuur",
+              "layerId": "openweathermaptemperature-new"
+            },
+            {
+              "label": "Windsnelheid",
+              "layerId": "openweathermapwind-new"
+            },
+            {
+              "label": "Surfspots",
+              "layerId": "custom-style",
+              "checked": true
+            },
+            {
+              "label": "Kusttypen",
+              "layerId": "344a9408-9ac4-4f58-a068-c4ab0737f994"
+            }
+          ]
+        },
+        {
+          "id": "measure",
+          "type": "measure",
+          "enabled": true,
+          "title": "Measure"
+        },
+        {
+          "id": "info",
+          "type": "info",
+          "enabled": true,
+          "title": "Feature info"
+        },
+        {
+          "id": "3d",
+          "type": "3d",
+          "enabled": true,
+          "title": "3D"
+        },
+        {
+          "id": "view-mode",
+          "type": "view-mode",
+          "enabled": true,
+          "title": "View mode"
+        },
+        {
+          "id": "draw",
+          "type": "draw",
+          "enabled": true,
+          "title": "Draw"
+        },
+        {
+          "id": "import-layer",
+          "type": "import-layer",
+          "enabled": true,
+          "title": "Import layer"
+        }
+      ]
+    },
+    "attribution": {
+      "type": "attributionControl",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    },
+    "coordinates": {
+      "type": "coordinates",
+      "enabled": true,
+      "position": "bottom-center"
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "bottom-right",
+      "direction": "vertical",
+      "orientation": "vertical"
+    },
+    "scale": {
+      "type": "scaleControl",
+      "enabled": true,
+      "position": "bottom-right",
+      "maxWidth": 140,
+      "margin": "0 0 5px 0"
+    },
+    "zoomLevel": {
+      "type": "zoomLevel",
+      "enabled": true,
+      "position": "bottom-left"
+    },
+    "spinner": {
+      "type": "spinner",
+      "enabled": true,
+      "position": "middle-center"
+    },
+    "legendToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-right",
+      "orientation": "vertical",
+      "tooltipPlacement": "left",
+      "panel": {
+        "enabled": true,
+        "position": "after",
+        "opened": false
+      },
+      "items": [
+        {
+          "id": "legend",
+          "type": "layerOverview",
+          "enabled": true,
+          "title": "Legend"
+        }
+      ]
+    }
+  }
+}

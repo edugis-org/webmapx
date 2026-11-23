@@ -1,0 +1,1 @@
+import{Mt as e}from"./webmapx-shared-BsNSgmVj.js";export{e as buildLayoutFromConfig};

@@ -1,0 +1,3595 @@
+{
+  "version": 0,
+  "project": {
+    "id": "historisch",
+    "title": "Historisch",
+    "description": "Converted from an EduGIS map configuration."
+  },
+  "map": {
+    "label": "Historisch",
+    "center": [
+      5.375,
+      52.168
+    ],
+    "zoom": 6.5,
+    "type": "maplibre",
+    "style": {
+      "version": 8,
+      "sources": {},
+      "layers": []
+    }
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "topotijdreis1815-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1815/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1815/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1815/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1815/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1820-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1820/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1820/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1820/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1820/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1821-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1821/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1821/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1821/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1821/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1823-1829-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1823_1829/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1823_1829/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1823_1829/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1823_1829/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1830-1849-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1830_1849/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1830_1849/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1830_1849/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1830_1849/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1850-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1850/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1850/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1850/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1850/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1857-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1857/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1857/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1857/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1857/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1858-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1858/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1858/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1858/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1858/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1861-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1861/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1861/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1861/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1861/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1862-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1862/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1862/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1862/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1862/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1865-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1865/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1865/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1865/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1865/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1866-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1866/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1866/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1866/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1866/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1868-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1868/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1868/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1868/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1868/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1870-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1870/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1870/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1870/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1870/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1871-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1871/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1871/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1871/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1871/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1872-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1872/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1872/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1872/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1872/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1880-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1880/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1880/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1880/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1880/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1883-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1883/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1883/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1883/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1883/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1886-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1886/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1886/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1886/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1886/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1888-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1888/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1888/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1888/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1888/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1889-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1889/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1889/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1889/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1889/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1893-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1893/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1893/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1893/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1893/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1899-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1899/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1899/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1899/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1899/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1900-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1900/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1900/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1900/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1900/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1901-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1901/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1901/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1901/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1901/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1902-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1902/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1902/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1902/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1902/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1904-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1904/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1904/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1904/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1904/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1908-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1908/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1908/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1908/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1908/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1909-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1909/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1909/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1909/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1909/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1910-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1910/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1910/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1910/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1910/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1912-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1912/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1912/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1912/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1912/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1915-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1915/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1915/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1915/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1915/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1918-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1918/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1918/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1918/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1918/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1919-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1919/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1919/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1919/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1919/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1920-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1920/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1920/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1920/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1920/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1922-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1922/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1922/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1922/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1922/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1925-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1925/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1925/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1925/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1925/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1929-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1929/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1929/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1929/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1929/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1931-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1931/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1931/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1931/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1931/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1935-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1935/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1935/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1935/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1935/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1937-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1937/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1937/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1937/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1937/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1940-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1940/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1940/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1940/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1940/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1942-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1942/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1942/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1942/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1942/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1943-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1943/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1943/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1943/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1943/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1947-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1947/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1947/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1947/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1947/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1948-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1948/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1948/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1948/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1948/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1949-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1949/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1949/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1949/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1949/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1950-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1950/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1950/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1950/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1950/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1951-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1951/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1951/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1951/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1951/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1952-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1952/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1952/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1952/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1952/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1953-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1953/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1953/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1953/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1953/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1955-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1955/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1955/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1955/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1955/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1962-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1962/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1962/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1962/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1962/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1963-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1963/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1963/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1963/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1963/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1965-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1965/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1965/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1965/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1965/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1970-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1970/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1970/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1970/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1970/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1971-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1971/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1971/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1971/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1971/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1973-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1973/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1973/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1973/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1973/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1975-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1975/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1975/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1975/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1975/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1976-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1976/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1976/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1976/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1976/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1978-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1978/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1978/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1978/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1978/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1980-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1980/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1980/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1980/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1980/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1984-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1984/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1984/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1984/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1984/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1988-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1988/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1988/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1988/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1988/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1990-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1990/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1990/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1990/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1990/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1994-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1994/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1994/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1994/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1994/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1995-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1995/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1995/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1995/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1995/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1996-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1996/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1996/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1996/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1996/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1997-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1997/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1997/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1997/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1997/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis1999-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1999/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1999/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1999/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_1999/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis2006-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2006/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2006/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2006/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2006/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis2010-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2010/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2010/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2010/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2010/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis2011-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2011/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2011/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2011/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2011/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis2014-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2014/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2014/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2014/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2014/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis2015-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2015/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2015/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2015/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2015/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis2016-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2016/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2016/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2016/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2016/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis2017-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2017/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2017/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2017/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2017/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis2018-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2018/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2018/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2018/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2018/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "topotijdreis2019-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2019/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2019/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2019/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/topotijdreis/wmts/topotijdreis_2019/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "tijdreisfoto2006-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/tijdreisfoto/wmts/tijdreisfoto_2006/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "tijdreisfoto2007-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/tijdreisfoto/wmts/tijdreisfoto_2007/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "tijdreisfoto2008-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/tijdreisfoto/wmts/tijdreisfoto_2008/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "tijdreisfoto2009-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/tijdreisfoto/wmts/tijdreisfoto_2009/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "tijdreisfoto2010-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/tijdreisfoto/wmts/tijdreisfoto_2010/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "tijdreisfoto2011-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/tijdreisfoto/wmts/tijdreisfoto_2011/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "tijdreisfoto2012-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/tijdreisfoto/wmts/tijdreisfoto_2012/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "tijdreisfoto2013-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/tijdreisfoto/wmts/tijdreisfoto_2013/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "tijdreisfoto2014-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/tijdreisfoto/wmts/tijdreisfoto_2014/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "tijdreisfoto2015-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/tijdreisfoto/wmts/tijdreisfoto_2015/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "tijdreisfoto2016-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/tijdreisfoto/wmts/tijdreisfoto_2016/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "tijdreisfoto2017-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/tijdreisfoto/wmts/tijdreisfoto_2017/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "tijdreisfoto2018-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/mapproxy/tijdreisfoto/wmts/tijdreisfoto_2018/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "bounds": [
+          3.20009,
+          50.7167,
+          7.27283,
+          53.5571
+        ],
+        "attribution": "&copy; <a href=\"https://topotijdreis.nl\" target=\"copyright\">Kadaster Topotijdreis.nl</a>"
+      },
+      {
+        "id": "pdokluchtfotowmts2019-2-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/2019_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "minzoom": 5,
+        "maxzoom": 18,
+        "bounds": [
+          2.75,
+          50.5,
+          7.5,
+          53.6
+        ],
+        "attribution": "PDOK"
+      },
+      {
+        "id": "pdokluchtfotowmts2020-2-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/2020_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "minzoom": 5,
+        "maxzoom": 18,
+        "bounds": [
+          2.75,
+          50.5,
+          7.5,
+          53.6
+        ],
+        "attribution": "PDOK"
+      },
+      {
+        "id": "openstreetmap-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/about\" target=\"copyright\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "esriworldimagery-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        ],
+        "tileSize": 256,
+        "maxzoom": 22,
+        "attribution": "ESRI World Imagery"
+      },
+      {
+        "id": "pdokluchtfotowmtsactueel-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg"
+        ],
+        "tileSize": 256,
+        "minzoom": 5,
+        "maxzoom": 18,
+        "bounds": [
+          2.75,
+          50.5,
+          7.5,
+          53.6
+        ],
+        "attribution": "PDOK"
+      }
+    ],
+    "layers": [
+      {
+        "id": "topotijdreis1815",
+        "title": "1815",
+        "type": "raster",
+        "source": "topotijdreis1815-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1815",
+          "label": "1815"
+        }
+      },
+      {
+        "id": "topotijdreis1820",
+        "title": "1820",
+        "type": "raster",
+        "source": "topotijdreis1820-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1820",
+          "label": "1820"
+        }
+      },
+      {
+        "id": "topotijdreis1821",
+        "title": "1821",
+        "type": "raster",
+        "source": "topotijdreis1821-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1821",
+          "label": "1821"
+        }
+      },
+      {
+        "id": "topotijdreis1823-1829",
+        "title": "1823-1829",
+        "type": "raster",
+        "source": "topotijdreis1823-1829-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1823_1829",
+          "label": "1823-1829"
+        }
+      },
+      {
+        "id": "topotijdreis1830-1849",
+        "title": "1830-1849",
+        "type": "raster",
+        "source": "topotijdreis1830-1849-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1830_1849",
+          "label": "1830-1849"
+        }
+      },
+      {
+        "id": "topotijdreis1850",
+        "title": "1850",
+        "type": "raster",
+        "source": "topotijdreis1850-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1850",
+          "label": "1850"
+        }
+      },
+      {
+        "id": "topotijdreis1857",
+        "title": "1857",
+        "type": "raster",
+        "source": "topotijdreis1857-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1857",
+          "label": "1857"
+        }
+      },
+      {
+        "id": "topotijdreis1858",
+        "title": "1858",
+        "type": "raster",
+        "source": "topotijdreis1858-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1858",
+          "label": "1858"
+        }
+      },
+      {
+        "id": "topotijdreis1861",
+        "title": "1861",
+        "type": "raster",
+        "source": "topotijdreis1861-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1861",
+          "label": "1861"
+        }
+      },
+      {
+        "id": "topotijdreis1862",
+        "title": "1862",
+        "type": "raster",
+        "source": "topotijdreis1862-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1862",
+          "label": "1862"
+        }
+      },
+      {
+        "id": "topotijdreis1865",
+        "title": "1865",
+        "type": "raster",
+        "source": "topotijdreis1865-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1865",
+          "label": "1865"
+        }
+      },
+      {
+        "id": "topotijdreis1866",
+        "title": "1866",
+        "type": "raster",
+        "source": "topotijdreis1866-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1866",
+          "label": "1866"
+        }
+      },
+      {
+        "id": "topotijdreis1868",
+        "title": "1868",
+        "type": "raster",
+        "source": "topotijdreis1868-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1868",
+          "label": "1868"
+        }
+      },
+      {
+        "id": "topotijdreis1870",
+        "title": "1870",
+        "type": "raster",
+        "source": "topotijdreis1870-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1870",
+          "label": "1870"
+        }
+      },
+      {
+        "id": "topotijdreis1871",
+        "title": "1871",
+        "type": "raster",
+        "source": "topotijdreis1871-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1871",
+          "label": "1871"
+        }
+      },
+      {
+        "id": "topotijdreis1872",
+        "title": "1872",
+        "type": "raster",
+        "source": "topotijdreis1872-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1872",
+          "label": "1872"
+        }
+      },
+      {
+        "id": "topotijdreis1880",
+        "title": "1880",
+        "type": "raster",
+        "source": "topotijdreis1880-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1880",
+          "label": "1880"
+        }
+      },
+      {
+        "id": "topotijdreis1883",
+        "title": "1883",
+        "type": "raster",
+        "source": "topotijdreis1883-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1883",
+          "label": "1883"
+        }
+      },
+      {
+        "id": "topotijdreis1886",
+        "title": "1886",
+        "type": "raster",
+        "source": "topotijdreis1886-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1886",
+          "label": "1886"
+        }
+      },
+      {
+        "id": "topotijdreis1888",
+        "title": "1888",
+        "type": "raster",
+        "source": "topotijdreis1888-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1888",
+          "label": "1888"
+        }
+      },
+      {
+        "id": "topotijdreis1889",
+        "title": "1889",
+        "type": "raster",
+        "source": "topotijdreis1889-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1889",
+          "label": "1889"
+        }
+      },
+      {
+        "id": "topotijdreis1893",
+        "title": "1893",
+        "type": "raster",
+        "source": "topotijdreis1893-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1893",
+          "label": "1893"
+        }
+      },
+      {
+        "id": "topotijdreis1899",
+        "title": "1899",
+        "type": "raster",
+        "source": "topotijdreis1899-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1899",
+          "label": "1899"
+        }
+      },
+      {
+        "id": "topotijdreis1900",
+        "title": "1900",
+        "type": "raster",
+        "source": "topotijdreis1900-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1900",
+          "label": "1900"
+        }
+      },
+      {
+        "id": "topotijdreis1901",
+        "title": "1901",
+        "type": "raster",
+        "source": "topotijdreis1901-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1901",
+          "label": "1901"
+        }
+      },
+      {
+        "id": "topotijdreis1902",
+        "title": "1902",
+        "type": "raster",
+        "source": "topotijdreis1902-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1902",
+          "label": "1902"
+        }
+      },
+      {
+        "id": "topotijdreis1904",
+        "title": "1904",
+        "type": "raster",
+        "source": "topotijdreis1904-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1904",
+          "label": "1904"
+        }
+      },
+      {
+        "id": "topotijdreis1908",
+        "title": "1908",
+        "type": "raster",
+        "source": "topotijdreis1908-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1908",
+          "label": "1908"
+        }
+      },
+      {
+        "id": "topotijdreis1909",
+        "title": "1909",
+        "type": "raster",
+        "source": "topotijdreis1909-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1909",
+          "label": "1909"
+        }
+      },
+      {
+        "id": "topotijdreis1910",
+        "title": "1910",
+        "type": "raster",
+        "source": "topotijdreis1910-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1910",
+          "label": "1910"
+        }
+      },
+      {
+        "id": "topotijdreis1912",
+        "title": "1912",
+        "type": "raster",
+        "source": "topotijdreis1912-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1912",
+          "label": "1912"
+        }
+      },
+      {
+        "id": "topotijdreis1915",
+        "title": "1915",
+        "type": "raster",
+        "source": "topotijdreis1915-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1915",
+          "label": "1915"
+        }
+      },
+      {
+        "id": "topotijdreis1918",
+        "title": "1918",
+        "type": "raster",
+        "source": "topotijdreis1918-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1918",
+          "label": "1918"
+        }
+      },
+      {
+        "id": "topotijdreis1919",
+        "title": "1919",
+        "type": "raster",
+        "source": "topotijdreis1919-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1919",
+          "label": "1919"
+        }
+      },
+      {
+        "id": "topotijdreis1920",
+        "title": "1920",
+        "type": "raster",
+        "source": "topotijdreis1920-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1920",
+          "label": "1920"
+        }
+      },
+      {
+        "id": "topotijdreis1922",
+        "title": "1922",
+        "type": "raster",
+        "source": "topotijdreis1922-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1922",
+          "label": "1922"
+        }
+      },
+      {
+        "id": "topotijdreis1925",
+        "title": "1925",
+        "type": "raster",
+        "source": "topotijdreis1925-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1925",
+          "label": "1925"
+        }
+      },
+      {
+        "id": "topotijdreis1929",
+        "title": "1929",
+        "type": "raster",
+        "source": "topotijdreis1929-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1929",
+          "label": "1929"
+        }
+      },
+      {
+        "id": "topotijdreis1931",
+        "title": "1931",
+        "type": "raster",
+        "source": "topotijdreis1931-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1931",
+          "label": "1931"
+        }
+      },
+      {
+        "id": "topotijdreis1935",
+        "title": "1935",
+        "type": "raster",
+        "source": "topotijdreis1935-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1935",
+          "label": "1935"
+        }
+      },
+      {
+        "id": "topotijdreis1937",
+        "title": "1937",
+        "type": "raster",
+        "source": "topotijdreis1937-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1937",
+          "label": "1937"
+        }
+      },
+      {
+        "id": "topotijdreis1940",
+        "title": "1940",
+        "type": "raster",
+        "source": "topotijdreis1940-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1940",
+          "label": "1940"
+        }
+      },
+      {
+        "id": "topotijdreis1942",
+        "title": "1942",
+        "type": "raster",
+        "source": "topotijdreis1942-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1942",
+          "label": "1942"
+        }
+      },
+      {
+        "id": "topotijdreis1943",
+        "title": "1943",
+        "type": "raster",
+        "source": "topotijdreis1943-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1943",
+          "label": "1943"
+        }
+      },
+      {
+        "id": "topotijdreis1947",
+        "title": "1947",
+        "type": "raster",
+        "source": "topotijdreis1947-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1947",
+          "label": "1947"
+        }
+      },
+      {
+        "id": "topotijdreis1948",
+        "title": "1948",
+        "type": "raster",
+        "source": "topotijdreis1948-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1948",
+          "label": "1948"
+        }
+      },
+      {
+        "id": "topotijdreis1949",
+        "title": "1949",
+        "type": "raster",
+        "source": "topotijdreis1949-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1949",
+          "label": "1949"
+        }
+      },
+      {
+        "id": "topotijdreis1950",
+        "title": "1950",
+        "type": "raster",
+        "source": "topotijdreis1950-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1950",
+          "label": "1950"
+        }
+      },
+      {
+        "id": "topotijdreis1951",
+        "title": "1951",
+        "type": "raster",
+        "source": "topotijdreis1951-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1951",
+          "label": "1951"
+        }
+      },
+      {
+        "id": "topotijdreis1952",
+        "title": "1952",
+        "type": "raster",
+        "source": "topotijdreis1952-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1952",
+          "label": "1952"
+        }
+      },
+      {
+        "id": "topotijdreis1953",
+        "title": "1953",
+        "type": "raster",
+        "source": "topotijdreis1953-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1953",
+          "label": "1953"
+        }
+      },
+      {
+        "id": "topotijdreis1955",
+        "title": "1955",
+        "type": "raster",
+        "source": "topotijdreis1955-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1955",
+          "label": "1955"
+        }
+      },
+      {
+        "id": "topotijdreis1962",
+        "title": "1962",
+        "type": "raster",
+        "source": "topotijdreis1962-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1962",
+          "label": "1962"
+        }
+      },
+      {
+        "id": "topotijdreis1963",
+        "title": "1963",
+        "type": "raster",
+        "source": "topotijdreis1963-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1963",
+          "label": "1963"
+        }
+      },
+      {
+        "id": "topotijdreis1965",
+        "title": "1965",
+        "type": "raster",
+        "source": "topotijdreis1965-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1965",
+          "label": "1965"
+        }
+      },
+      {
+        "id": "topotijdreis1970",
+        "title": "1970",
+        "type": "raster",
+        "source": "topotijdreis1970-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1970",
+          "label": "1970"
+        }
+      },
+      {
+        "id": "topotijdreis1971",
+        "title": "1971",
+        "type": "raster",
+        "source": "topotijdreis1971-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1971",
+          "label": "1971"
+        }
+      },
+      {
+        "id": "topotijdreis1973",
+        "title": "1973",
+        "type": "raster",
+        "source": "topotijdreis1973-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1973",
+          "label": "1973"
+        }
+      },
+      {
+        "id": "topotijdreis1975",
+        "title": "1975",
+        "type": "raster",
+        "source": "topotijdreis1975-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1975",
+          "label": "1975"
+        }
+      },
+      {
+        "id": "topotijdreis1976",
+        "title": "1976",
+        "type": "raster",
+        "source": "topotijdreis1976-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1976",
+          "label": "1976"
+        }
+      },
+      {
+        "id": "topotijdreis1978",
+        "title": "1978",
+        "type": "raster",
+        "source": "topotijdreis1978-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1978",
+          "label": "1978"
+        }
+      },
+      {
+        "id": "topotijdreis1980",
+        "title": "1980",
+        "type": "raster",
+        "source": "topotijdreis1980-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1980",
+          "label": "1980"
+        }
+      },
+      {
+        "id": "topotijdreis1984",
+        "title": "1984",
+        "type": "raster",
+        "source": "topotijdreis1984-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1984",
+          "label": "1984"
+        }
+      },
+      {
+        "id": "topotijdreis1988",
+        "title": "1988",
+        "type": "raster",
+        "source": "topotijdreis1988-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1988",
+          "label": "1988"
+        }
+      },
+      {
+        "id": "topotijdreis1990",
+        "title": "1990",
+        "type": "raster",
+        "source": "topotijdreis1990-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1990",
+          "label": "1990"
+        }
+      },
+      {
+        "id": "topotijdreis1994",
+        "title": "1994",
+        "type": "raster",
+        "source": "topotijdreis1994-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1994",
+          "label": "1994"
+        }
+      },
+      {
+        "id": "topotijdreis1995",
+        "title": "1995",
+        "type": "raster",
+        "source": "topotijdreis1995-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1995",
+          "label": "1995"
+        }
+      },
+      {
+        "id": "topotijdreis1996",
+        "title": "1996",
+        "type": "raster",
+        "source": "topotijdreis1996-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1996",
+          "label": "1996"
+        }
+      },
+      {
+        "id": "topotijdreis1997",
+        "title": "1997",
+        "type": "raster",
+        "source": "topotijdreis1997-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1997",
+          "label": "1997"
+        }
+      },
+      {
+        "id": "topotijdreis1999",
+        "title": "1999",
+        "type": "raster",
+        "source": "topotijdreis1999-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "1999",
+          "label": "1999"
+        }
+      },
+      {
+        "id": "topotijdreis2006",
+        "title": "2006",
+        "type": "raster",
+        "source": "topotijdreis2006-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2006",
+          "label": "2006"
+        }
+      },
+      {
+        "id": "topotijdreis2010",
+        "title": "2010",
+        "type": "raster",
+        "source": "topotijdreis2010-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2010",
+          "label": "2010"
+        }
+      },
+      {
+        "id": "topotijdreis2011",
+        "title": "2011",
+        "type": "raster",
+        "source": "topotijdreis2011-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2011",
+          "label": "2011"
+        }
+      },
+      {
+        "id": "topotijdreis2014",
+        "title": "2014",
+        "type": "raster",
+        "source": "topotijdreis2014-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2014",
+          "label": "2014"
+        }
+      },
+      {
+        "id": "topotijdreis2015",
+        "title": "2015",
+        "type": "raster",
+        "source": "topotijdreis2015-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2015",
+          "label": "2015"
+        }
+      },
+      {
+        "id": "topotijdreis2016",
+        "title": "2016",
+        "type": "raster",
+        "source": "topotijdreis2016-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2016",
+          "label": "2016"
+        }
+      },
+      {
+        "id": "topotijdreis2017",
+        "title": "2017",
+        "type": "raster",
+        "source": "topotijdreis2017-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2017",
+          "label": "2017"
+        }
+      },
+      {
+        "id": "topotijdreis2018",
+        "title": "2018",
+        "type": "raster",
+        "source": "topotijdreis2018-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2018",
+          "label": "2018"
+        }
+      },
+      {
+        "id": "topotijdreis2019",
+        "title": "2019",
+        "type": "raster",
+        "source": "topotijdreis2019-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2019",
+          "label": "2019"
+        }
+      },
+      {
+        "id": "tijdreisfoto2006",
+        "title": "2006",
+        "type": "raster",
+        "source": "tijdreisfoto2006-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2006",
+          "label": "2006"
+        }
+      },
+      {
+        "id": "tijdreisfoto2007",
+        "title": "2007",
+        "type": "raster",
+        "source": "tijdreisfoto2007-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2007",
+          "label": "2007"
+        }
+      },
+      {
+        "id": "tijdreisfoto2008",
+        "title": "2008",
+        "type": "raster",
+        "source": "tijdreisfoto2008-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2008",
+          "label": "2008"
+        }
+      },
+      {
+        "id": "tijdreisfoto2009",
+        "title": "2009",
+        "type": "raster",
+        "source": "tijdreisfoto2009-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2009",
+          "label": "2009"
+        }
+      },
+      {
+        "id": "tijdreisfoto2010",
+        "title": "2010",
+        "type": "raster",
+        "source": "tijdreisfoto2010-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2010",
+          "label": "2010"
+        }
+      },
+      {
+        "id": "tijdreisfoto2011",
+        "title": "2011",
+        "type": "raster",
+        "source": "tijdreisfoto2011-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2011",
+          "label": "2011"
+        }
+      },
+      {
+        "id": "tijdreisfoto2012",
+        "title": "2012",
+        "type": "raster",
+        "source": "tijdreisfoto2012-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2012",
+          "label": "2012"
+        }
+      },
+      {
+        "id": "tijdreisfoto2013",
+        "title": "2013",
+        "type": "raster",
+        "source": "tijdreisfoto2013-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2013",
+          "label": "2013"
+        }
+      },
+      {
+        "id": "tijdreisfoto2014",
+        "title": "2014",
+        "type": "raster",
+        "source": "tijdreisfoto2014-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2014",
+          "label": "2014"
+        }
+      },
+      {
+        "id": "tijdreisfoto2015",
+        "title": "2015",
+        "type": "raster",
+        "source": "tijdreisfoto2015-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2015",
+          "label": "2015"
+        }
+      },
+      {
+        "id": "tijdreisfoto2016",
+        "title": "2016",
+        "type": "raster",
+        "source": "tijdreisfoto2016-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2016",
+          "label": "2016"
+        }
+      },
+      {
+        "id": "tijdreisfoto2017",
+        "title": "2017",
+        "type": "raster",
+        "source": "tijdreisfoto2017-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2017",
+          "label": "2017"
+        }
+      },
+      {
+        "id": "tijdreisfoto2018",
+        "title": "2018",
+        "type": "raster",
+        "source": "tijdreisfoto2018-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "title": "2018",
+          "label": "2018"
+        }
+      },
+      {
+        "id": "pdokluchtfotowmts2019-2",
+        "title": "2019",
+        "type": "raster",
+        "source": "pdokluchtfotowmts2019-2-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "reference": true,
+          "title": "2019",
+          "label": "2019"
+        }
+      },
+      {
+        "id": "pdokluchtfotowmts2020-2",
+        "title": "2020",
+        "type": "raster",
+        "source": "pdokluchtfotowmts2020-2-source",
+        "metadata": {
+          "legendurl": "https://www.edugis.nl/wp-content/uploads/2022/11/topotijdreis2.jpg",
+          "reference": true,
+          "title": "2020",
+          "label": "2020"
+        }
+      },
+      {
+        "id": "openstreetmap",
+        "title": "Topografisch | Standaard | OSM",
+        "type": "raster",
+        "source": "openstreetmap-source",
+        "metadata": {
+          "legendurl": "https://mapserver.edugis.nl/legends/wereld/osm_logo.png",
+          "title": "Openstreetmap",
+          "reference": true,
+          "label": "Topografisch | Standaard | OSM"
+        }
+      },
+      {
+        "id": "esriworldimagery",
+        "title": "Luchtfoto | Wereld | ESRI World Imagery",
+        "type": "raster",
+        "source": "esriworldimagery-source",
+        "metadata": {
+          "reference": true,
+          "title": "ESRI | Satelliet",
+          "userlayer": true,
+          "label": "Luchtfoto | Wereld | ESRI World Imagery"
+        }
+      },
+      {
+        "id": "pdokluchtfotowmtsactueel",
+        "title": "Luchtfoto | Nederland | PDOK",
+        "type": "raster",
+        "source": "pdokluchtfotowmtsactueel-source",
+        "metadata": {
+          "legendurl": "https://map.edugis.nl/legends2/pdoklufolegend.png",
+          "reference": true,
+          "title": "PDOK luchtfoto's (Actueel)",
+          "label": "Luchtfoto | Nederland | PDOK"
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeBackground": "esriworldimagery",
+    "activeLayers": [
+      {
+        "ref": "esriworldimagery",
+        "visible": true
+      }
+    ],
+    "activeExclusiveLayers": {
+      "basemap": "esriworldimagery"
+    }
+  },
+  "tools": {
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "panel": {
+        "enabled": true,
+        "position": "after"
+      },
+      "items": [
+        {
+          "id": "search",
+          "type": "search",
+          "enabled": true,
+          "title": "Search",
+          "provider": "nominatim",
+          "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim"
+        },
+        {
+          "id": "layers",
+          "type": "layerTree",
+          "enabled": true,
+          "title": "Catalog",
+          "tree": [
+            {
+              "label": "Topotijdreis | Kaarten",
+              "children": [
+                {
+                  "label": "1815",
+                  "layerId": "topotijdreis1815"
+                },
+                {
+                  "label": "1820",
+                  "layerId": "topotijdreis1820"
+                },
+                {
+                  "label": "1821",
+                  "layerId": "topotijdreis1821"
+                },
+                {
+                  "label": "1823-1829",
+                  "layerId": "topotijdreis1823-1829"
+                },
+                {
+                  "label": "1830-1849",
+                  "layerId": "topotijdreis1830-1849"
+                },
+                {
+                  "label": "1850",
+                  "layerId": "topotijdreis1850"
+                },
+                {
+                  "label": "1857",
+                  "layerId": "topotijdreis1857"
+                },
+                {
+                  "label": "1858",
+                  "layerId": "topotijdreis1858"
+                },
+                {
+                  "label": "1861",
+                  "layerId": "topotijdreis1861"
+                },
+                {
+                  "label": "1862",
+                  "layerId": "topotijdreis1862"
+                },
+                {
+                  "label": "1865",
+                  "layerId": "topotijdreis1865"
+                },
+                {
+                  "label": "1866",
+                  "layerId": "topotijdreis1866"
+                },
+                {
+                  "label": "1868",
+                  "layerId": "topotijdreis1868"
+                },
+                {
+                  "label": "1870",
+                  "layerId": "topotijdreis1870"
+                },
+                {
+                  "label": "1871",
+                  "layerId": "topotijdreis1871"
+                },
+                {
+                  "label": "1872",
+                  "layerId": "topotijdreis1872"
+                },
+                {
+                  "label": "1880",
+                  "layerId": "topotijdreis1880"
+                },
+                {
+                  "label": "1883",
+                  "layerId": "topotijdreis1883"
+                },
+                {
+                  "label": "1886",
+                  "layerId": "topotijdreis1886"
+                },
+                {
+                  "label": "1888",
+                  "layerId": "topotijdreis1888"
+                },
+                {
+                  "label": "1889",
+                  "layerId": "topotijdreis1889"
+                },
+                {
+                  "label": "1893",
+                  "layerId": "topotijdreis1893"
+                },
+                {
+                  "label": "1899",
+                  "layerId": "topotijdreis1899"
+                },
+                {
+                  "label": "1900",
+                  "layerId": "topotijdreis1900"
+                },
+                {
+                  "label": "1901",
+                  "layerId": "topotijdreis1901"
+                },
+                {
+                  "label": "1902",
+                  "layerId": "topotijdreis1902"
+                },
+                {
+                  "label": "1904",
+                  "layerId": "topotijdreis1904"
+                },
+                {
+                  "label": "1908",
+                  "layerId": "topotijdreis1908"
+                },
+                {
+                  "label": "1909",
+                  "layerId": "topotijdreis1909"
+                },
+                {
+                  "label": "1910",
+                  "layerId": "topotijdreis1910"
+                },
+                {
+                  "label": "1912",
+                  "layerId": "topotijdreis1912"
+                },
+                {
+                  "label": "1915",
+                  "layerId": "topotijdreis1915"
+                },
+                {
+                  "label": "1918",
+                  "layerId": "topotijdreis1918"
+                },
+                {
+                  "label": "1919",
+                  "layerId": "topotijdreis1919"
+                },
+                {
+                  "label": "1920",
+                  "layerId": "topotijdreis1920"
+                },
+                {
+                  "label": "1922",
+                  "layerId": "topotijdreis1922"
+                },
+                {
+                  "label": "1925",
+                  "layerId": "topotijdreis1925"
+                },
+                {
+                  "label": "1929",
+                  "layerId": "topotijdreis1929"
+                },
+                {
+                  "label": "1931",
+                  "layerId": "topotijdreis1931"
+                },
+                {
+                  "label": "1935",
+                  "layerId": "topotijdreis1935"
+                },
+                {
+                  "label": "1937",
+                  "layerId": "topotijdreis1937"
+                },
+                {
+                  "label": "1940",
+                  "layerId": "topotijdreis1940"
+                },
+                {
+                  "label": "1942",
+                  "layerId": "topotijdreis1942"
+                },
+                {
+                  "label": "1943",
+                  "layerId": "topotijdreis1943"
+                },
+                {
+                  "label": "1947",
+                  "layerId": "topotijdreis1947"
+                },
+                {
+                  "label": "1948",
+                  "layerId": "topotijdreis1948"
+                },
+                {
+                  "label": "1949",
+                  "layerId": "topotijdreis1949"
+                },
+                {
+                  "label": "1950",
+                  "layerId": "topotijdreis1950"
+                },
+                {
+                  "label": "1951",
+                  "layerId": "topotijdreis1951"
+                },
+                {
+                  "label": "1952",
+                  "layerId": "topotijdreis1952"
+                },
+                {
+                  "label": "1953",
+                  "layerId": "topotijdreis1953"
+                },
+                {
+                  "label": "1955",
+                  "layerId": "topotijdreis1955"
+                },
+                {
+                  "label": "1962",
+                  "layerId": "topotijdreis1962"
+                },
+                {
+                  "label": "1963",
+                  "layerId": "topotijdreis1963"
+                },
+                {
+                  "label": "1965",
+                  "layerId": "topotijdreis1965"
+                },
+                {
+                  "label": "1970",
+                  "layerId": "topotijdreis1970"
+                },
+                {
+                  "label": "1971",
+                  "layerId": "topotijdreis1971"
+                },
+                {
+                  "label": "1973",
+                  "layerId": "topotijdreis1973"
+                },
+                {
+                  "label": "1975",
+                  "layerId": "topotijdreis1975"
+                },
+                {
+                  "label": "1976",
+                  "layerId": "topotijdreis1976"
+                },
+                {
+                  "label": "1978",
+                  "layerId": "topotijdreis1978"
+                },
+                {
+                  "label": "1980",
+                  "layerId": "topotijdreis1980"
+                },
+                {
+                  "label": "1984",
+                  "layerId": "topotijdreis1984"
+                },
+                {
+                  "label": "1988",
+                  "layerId": "topotijdreis1988"
+                },
+                {
+                  "label": "1990",
+                  "layerId": "topotijdreis1990"
+                },
+                {
+                  "label": "1994",
+                  "layerId": "topotijdreis1994"
+                },
+                {
+                  "label": "1995",
+                  "layerId": "topotijdreis1995"
+                },
+                {
+                  "label": "1996",
+                  "layerId": "topotijdreis1996"
+                },
+                {
+                  "label": "1997",
+                  "layerId": "topotijdreis1997"
+                },
+                {
+                  "label": "1999",
+                  "layerId": "topotijdreis1999"
+                },
+                {
+                  "label": "2006",
+                  "layerId": "topotijdreis2006"
+                },
+                {
+                  "label": "2010",
+                  "layerId": "topotijdreis2010"
+                },
+                {
+                  "label": "2011",
+                  "layerId": "topotijdreis2011"
+                },
+                {
+                  "label": "2014",
+                  "layerId": "topotijdreis2014"
+                },
+                {
+                  "label": "2015",
+                  "layerId": "topotijdreis2015"
+                },
+                {
+                  "label": "2016",
+                  "layerId": "topotijdreis2016"
+                },
+                {
+                  "label": "2017",
+                  "layerId": "topotijdreis2017"
+                },
+                {
+                  "label": "2018",
+                  "layerId": "topotijdreis2018"
+                },
+                {
+                  "label": "2019",
+                  "layerId": "topotijdreis2019"
+                }
+              ]
+            },
+            {
+              "label": "Topotijdreis | Luchtfoto's",
+              "children": [
+                {
+                  "label": "2006",
+                  "layerId": "tijdreisfoto2006"
+                },
+                {
+                  "label": "2007",
+                  "layerId": "tijdreisfoto2007"
+                },
+                {
+                  "label": "2008",
+                  "layerId": "tijdreisfoto2008"
+                },
+                {
+                  "label": "2009",
+                  "layerId": "tijdreisfoto2009"
+                },
+                {
+                  "label": "2010",
+                  "layerId": "tijdreisfoto2010"
+                },
+                {
+                  "label": "2011",
+                  "layerId": "tijdreisfoto2011"
+                },
+                {
+                  "label": "2012",
+                  "layerId": "tijdreisfoto2012"
+                },
+                {
+                  "label": "2013",
+                  "layerId": "tijdreisfoto2013"
+                },
+                {
+                  "label": "2014",
+                  "layerId": "tijdreisfoto2014"
+                },
+                {
+                  "label": "2015",
+                  "layerId": "tijdreisfoto2015"
+                },
+                {
+                  "label": "2016",
+                  "layerId": "tijdreisfoto2016"
+                },
+                {
+                  "label": "2017",
+                  "layerId": "tijdreisfoto2017"
+                },
+                {
+                  "label": "2018",
+                  "layerId": "tijdreisfoto2018"
+                },
+                {
+                  "label": "2019",
+                  "layerId": "pdokluchtfotowmts2019-2",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "2020",
+                  "layerId": "pdokluchtfotowmts2020-2",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                }
+              ]
+            },
+            {
+              "label": "Jan en Willem Blaeu | 17e eeuw",
+              "children": [
+                {
+                  "label": "Historische kaarten",
+                  "type": "getcapabilities",
+                  "url": "https://mapserver.edugis.nl/cgi-bin/mapserv?map=maps/edugis/cache/blaeu.map",
+                  "allowedLayers": [
+                    "Nederland 17e eeuw (Blaeu)",
+                    "Amsterdam 17e eeuw (Blaeu)",
+                    "Noord-Holland 17e eeuw (Blaeu)",
+                    "Friesland 17e eeuw (Blaeu)",
+                    "Groningen 17e eeuw (Blaeu)",
+                    "Drenthe 17e eeuw (Blaeu)",
+                    "Overijssel 17e eeuw (Blaeu)",
+                    "Gelderland 17e eeuw (Blaeu)",
+                    "Utrecht 17e eeuw (Blaeu)",
+                    "Zuid-Holland 17e eeuw (Blaeu)",
+                    "Zeeland 17e eeuw (Blaeu)",
+                    "Zuid-Holland 17e eeuw (Blaeu)",
+                    "Delfland 17e eeuw (Blaeu)",
+                    "Brabant 17e eeuw (Blaeu)",
+                    "Limburg 17e eeuw (Blaeu)"
+                  ],
+                  "tilecacheUrl": [
+                    "https://t1.edugis.nl/tiles/tilecache.py",
+                    "https://t2.edugis.nl/tiles/tilecache.py"
+                  ]
+                }
+              ]
+            },
+            {
+              "label": "Zuid-Limburg | 1820-1957",
+              "children": [
+                {
+                  "label": "Zuid-Limburg",
+                  "type": "getcapabilities",
+                  "url": "https://kaart.edugis.nl/data/nederland/zuid_limburg.xml",
+                  "tilecacheUrl": [
+                    "https://t1.edugis.nl/tiles/tilecache.py",
+                    "https://t2.edugis.nl/tiles/tilecache.py"
+                  ]
+                }
+              ]
+            },
+            {
+              "label": "Overige historische kaarten",
+              "children": [
+                {
+                  "label": "Overige historische kaarten",
+                  "type": "getcapabilities",
+                  "url": "https://mapserver.edugis.nl/cgi-bin/mapserv?map=maps/edugis/cache/blaeu.map",
+                  "deniedLayers": [
+                    "amsterdam_1945",
+                    "Nederland 17e eeuw (Blaeu)",
+                    "Amsterdam 17e eeuw (Blaeu)",
+                    "Noord-Holland 17e eeuw (Blaeu)",
+                    "Friesland 17e eeuw (Blaeu)",
+                    "Groningen 17e eeuw (Blaeu)",
+                    "Drenthe 17e eeuw (Blaeu)",
+                    "Overijssel 17e eeuw (Blaeu)",
+                    "Gelderland 17e eeuw (Blaeu)",
+                    "Utrecht 17e eeuw (Blaeu)",
+                    "Noord-Holland Zuid 17e eeuw (Blaeu)",
+                    "Zeeland 17e eeuw (Blaeu)",
+                    "Zuid-Holland 17e eeuw (Blaeu)",
+                    "Delfland 17e eeuw (Blaeu)",
+                    "Brabant 17e eeuw (Blaeu)",
+                    "Limburg 17e eeuw (Blaeu)"
+                  ],
+                  "tilecacheUrl": [
+                    "https://t1.edugis.nl/tiles/tilecache.py",
+                    "https://t2.edugis.nl/tiles/tilecache.py"
+                  ]
+                }
+              ]
+            },
+            {
+              "label": "Achtergrondlagen",
+              "children": [
+                {
+                  "label": "Topografisch | Standaard | OSM",
+                  "layerId": "openstreetmap",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Luchtfoto | Wereld | ESRI World Imagery",
+                  "layerId": "esriworldimagery",
+                  "checked": true,
+                  "selectionGroup": "basemap"
+                },
+                {
+                  "label": "Luchtfoto | Nederland | PDOK",
+                  "layerId": "pdokluchtfotowmtsactueel",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                }
+              ],
+              "selectionMode": "single",
+              "selectionGroup": "basemap",
+              "allowNone": false
+            }
+          ]
+        },
+        {
+          "id": "measure",
+          "type": "measure",
+          "enabled": true,
+          "title": "Measure"
+        },
+        {
+          "id": "info",
+          "type": "info",
+          "enabled": true,
+          "title": "Feature info"
+        },
+        {
+          "id": "3d",
+          "type": "3d",
+          "enabled": true,
+          "title": "3D"
+        },
+        {
+          "id": "draw",
+          "type": "draw",
+          "enabled": true,
+          "title": "Draw"
+        },
+        {
+          "id": "import-layer",
+          "type": "import-layer",
+          "enabled": true,
+          "title": "Import layer"
+        }
+      ]
+    },
+    "attribution": {
+      "type": "attributionControl",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    },
+    "coordinates": {
+      "type": "coordinates",
+      "enabled": true,
+      "position": "bottom-center"
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "bottom-right",
+      "direction": "vertical",
+      "orientation": "vertical"
+    },
+    "scale": {
+      "type": "scaleControl",
+      "enabled": true,
+      "position": "bottom-right",
+      "maxWidth": 140,
+      "margin": "0 0 5px 0"
+    },
+    "zoomLevel": {
+      "type": "zoomLevel",
+      "enabled": true,
+      "position": "bottom-left"
+    },
+    "spinner": {
+      "type": "spinner",
+      "enabled": true,
+      "position": "middle-center"
+    },
+    "legendToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-right",
+      "orientation": "vertical",
+      "tooltipPlacement": "left",
+      "panel": {
+        "enabled": true,
+        "position": "after",
+        "opened": false
+      },
+      "items": [
+        {
+          "id": "legend",
+          "type": "layerOverview",
+          "enabled": true,
+          "title": "Legend"
+        }
+      ]
+    }
+  }
+}

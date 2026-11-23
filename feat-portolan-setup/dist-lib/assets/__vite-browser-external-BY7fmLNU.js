@@ -1,0 +1,1 @@
+import{t as e}from"./spatial.worker-B07D3TCL.js";var t=e(((e,t)=>{t.exports={}}));export default t();

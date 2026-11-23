@@ -1,0 +1,1 @@
+import{s as e}from"./vendor-openlayers-core-BYj_aEr6.js";var t=class extends e{decodeBlock(e){return e}};export{t as default};

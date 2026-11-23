@@ -1,0 +1,181 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../apikeys.json",
+  "project": {
+    "id": "docs-timeslider",
+    "title": "Time",
+    "description": "Documentation demo for the time slider: a computed day/night layer, which is a function of the moment rather than a file on a server.",
+    "language": "en"
+  },
+  "map": {
+    "label": "Time",
+    "type": "maplibre",
+    "center": [
+      10,
+      30
+    ],
+    "zoom": 1
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "daynight-computed-source",
+        "type": "geojson",
+        "data": "internalfunc://day-night?refresh=auto",
+        "attribution": "Computed in the browser"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9",
+          "abstract": "Plain OpenStreetMap raster tiles. A measurement needs something recognisable underneath it — a canal, a block, a runway — so the numbers can be checked against the world."
+        }
+      },
+      {
+        "id": "daynight-computed",
+        "type": "fill",
+        "title": "Day, twilight and night (computed)",
+        "source": "daynight-computed-source",
+        "paint": {
+          "fill-color": [
+            "match",
+            [
+              "get",
+              "id"
+            ],
+            "night",
+            "#0b0f2b",
+            "astronomical",
+            "#1a237e",
+            "nautical",
+            "#3949ab",
+            "civil",
+            "#90caf9",
+            "sunset",
+            "#E9A97A",
+            "#cccccc"
+          ],
+          "fill-opacity": 1,
+          "fill-outline-color": [
+            "match",
+            [
+              "get",
+              "id"
+            ],
+            "sunset",
+            "#E9A97A",
+            "#000000"
+          ]
+        },
+        "metadata": {
+          "transparency": 45,
+          "title": "Day, twilight and night (computed)",
+          "abstract": "Night and the three twilights, right now. Computed from the date and time rather than fetched, and redrawn continuously as the Earth turns: the whole picture slides west at 464 metres a second on the equator, gliding at street zoom and barely stirring at world zoom. Where the bands lie north to south is a matter of the date — in June the night side does not reach the Arctic at all — and where they lie east to west is a matter of the time. The bands are set by how far the sun is below the horizon. Civil twilight, down to 6 degrees below, is still bright enough to read outdoors and to make out the horizon at sea. Nautical twilight, 6 to 12 degrees, brings out the brighter stars while the horizon can just be seen — the two together are what a sextant needs, and where the name comes from. Astronomical twilight, 12 to 18 degrees, looks dark but still washes out the faintest stars. Below 18 degrees is full night.",
+          "attributes": {
+            "translations": [
+              {
+                "name": "description",
+                "translation": "zone",
+                "unit": ""
+              },
+              {
+                "name": "id",
+                "translation": "zone",
+                "unit": "",
+                "valuemap": [
+                  {
+                    "value": "sunset",
+                    "label": "Sunrise and sunset"
+                  },
+                  {
+                    "value": "civil",
+                    "label": "Civil twilight"
+                  },
+                  {
+                    "value": "nautical",
+                    "label": "Nautical twilight"
+                  },
+                  {
+                    "value": "astronomical",
+                    "label": "Astronomical twilight"
+                  },
+                  {
+                    "value": "night",
+                    "label": "Night"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      },
+      {
+        "ref": "daynight-computed",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "timeSlider": {
+      "type": "timeSlider",
+      "enabled": true
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "timeSlider",
+          "id": "timeSlider",
+          "enabled": true
+        },
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}

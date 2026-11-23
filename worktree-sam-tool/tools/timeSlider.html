@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Time — WebMapX tool</title>
+<meta name="description" content="Sets the time used by time-based layers.">
+<link rel="canonical" href="https://webmapx.com/tools/timeSlider.html">
+<link rel="alternate" type="application/json" href="./timeSlider.json">
+<link rel="icon" href="../favicon.png" type="image/png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f8f8;color:#1a1a1a;line-height:1.6}
+a{color:#1b6ec2}
+header{background:#0f1923;color:#fff;padding:2rem 1.5rem}
+header .inner,main{max-width:52rem;margin:0 auto}
+header .crumb{font-size:.85rem;color:#8fa6bd}
+header .crumb a{color:#8fa6bd}
+header h1{font-size:2rem;letter-spacing:-.02em;margin:.4rem 0;display:flex;align-items:center;gap:.55rem}
+.tool-icon{display:inline-flex;align-items:center;flex:none}
+.tool-link{display:inline-flex;align-items:center;gap:.45rem}
+header p{color:#aac;max-width:42rem}
+.badges{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.75rem;border:1px solid #2e4358;color:#cfe0f0;border-radius:99px;padding:.15rem .6rem}
+.mapwrap{max-width:52rem;margin:1.5rem auto;height:26rem;border:1px solid #d8d8d8;border-radius:8px;overflow:hidden;background:#e9e9e9}
+.mapwrap iframe{width:100%;height:100%;border:0;display:block}
+.mapwrap .fallback{padding:2rem;font-size:.9rem;color:#555}
+main{padding:0 1.5rem 4rem}
+section{margin-top:2.5rem}
+/* The tools that exist but have no page yet, listed quietly under their own
+   group rather than in one lump at the bottom: a reader looking for a control
+   should find out there is one, in the place they were already looking. */
+.pending{margin-top:.8rem;font-size:.85rem;color:#666}
+/* One worked example, two pictures and a table. The colours are the tool's own:
+   the first layer neutral, the second layer the accent, the result filled. */
+.io{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-top:1rem}
+.io .arrow{font-size:1.6rem;color:#888;flex:0 0 auto}
+.map-figure{margin:0;flex:0 0 auto}
+.map-figure svg{background:#eef3f7;border:1px solid #d8d8d8;border-radius:4px;display:block}
+.map-figure figcaption{font-size:.75rem;color:#666;margin-top:.25rem}
+svg .a{fill:#c9d6e0;stroke:#7d8f9d;stroke-width:.5}
+svg .ghost{fill:#eceff2;stroke:#dfe4e8;stroke-width:.5}
+svg .b{fill:rgba(217,99,60,.18);stroke:#d9633c;stroke-width:1.2}
+svg .out{fill:rgba(43,108,143,.55);stroke:#1b4a63;stroke-width:.8}
+svg .pt{fill:#1b4a63;stroke:#fff;stroke-width:1}
+table.attrs{font-size:.8rem;margin-top:.6rem;width:auto;border-collapse:collapse}
+table.attrs th,table.attrs td{border:1px solid #ddd;padding:.2rem .5rem;text-align:left}
+table.attrs th{background:#f0f2f4}
+table.attrs td.null{color:#aaa;font-style:italic}
+p.fields{font-size:.85rem;color:#555;margin-top:.8rem}
+.scroll{overflow-x:auto}
+table.matrix{font-size:.8rem;border-collapse:collapse;margin-top:.6rem;width:auto}
+table.matrix th,table.matrix td{border:1px solid #ddd;padding:.25rem .5rem;text-align:center}
+table.matrix th.op{text-align:left;white-space:nowrap;font-weight:600}
+table.matrix th.sub{font-weight:400;color:#666;font-size:.75rem}
+table.matrix thead th{background:#f0f2f4}
+.yes{color:#2f7d4f;font-weight:700}
+.none{color:#999}
+.err{color:#b03030;font-weight:700}
+p.legend{font-size:.85rem;color:#555;margin-top:.6rem}
+.no-geom{width:300px;height:180px;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:#f4f6f8;border:1px dashed #cfd6dc;border-radius:4px;color:#7a848c;font-size:.85rem}
+p.pagenav{font-size:.9rem;margin-top:1.2rem;padding-bottom:.6rem;border-bottom:1px solid #e2e2e2}
+.pending code{background:#ececec;padding:.1em .35em;border-radius:3px}
+h2{font-size:1.3rem;letter-spacing:-.01em;margin-bottom:.6rem}
+p+p,p+ul,p+ol,ul+p,ol+p,pre+p{margin-top:.8rem}
+li{margin-left:1.2rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:#ececec;padding:.1em .35em;border-radius:3px}
+pre{background:#0f1923;color:#dfe8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin-top:.8rem}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin-top:.8rem;font-size:.9rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;vertical-align:top}
+footer{border-top:1px solid #ddd;margin-top:3rem;padding-top:1rem;font-size:.85rem;color:#666}
+@media (prefers-color-scheme:dark){
+ body{background:#12181e;color:#e6ebf0}a{color:#6db8ff}
+ .mapwrap{border-color:#25313d;background:#1a222a}
+ code{background:#222c36}th,td{border-color:#25313d}footer{border-color:#25313d;color:#9aa8b5}
+}
+</style>
+</head>
+<body>
+<header><div class="inner">
+<div class="crumb"><a href="../index.html">WebMapX</a> / <a href="./index.html">Tools</a></div>
+<h1><span class="tool-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-clock" viewBox="0 0 16 16" width="1em" height="1em">
+  <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71z"/>
+  <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0"/>
+</svg></span>Time</h1>
+<p>Sets the time used by time-based layers.</p>
+<div class="badges"><span class="badge">type: timeSlider</span><span class="badge">toolbar</span><span class="badge">stable</span></div>
+</div></header>
+<div class="mapwrap"><iframe loading="lazy" allow="fullscreen" title="Time demo map"
+     src="../testpages/preview.html?storageKey=webmapx-docs-no-override&config=../config/docs/tools/timeSlider.json"></iframe></div>
+<main><section id="what"><h2>What it does</h2><p>Some layers depend on time: where night falls, where the sun and moon stand, and which latitudes get twelve hours of daylight. The time slider lets those layers show another moment instead of only now.</p>
+<p>The main switch is <strong>Now</strong>:</p>
+<ul><li><strong>on</strong>: the map uses the current time.</li><li><strong>off</strong>: the map uses the time set by the sliders.</li></ul>
+<p>Time of day and date are separate sliders. The year picker reaches far enough for cycles that do not fit in one year, such as the moon's 18.6-year north-south swing.</p>
+<p>Press play to advance the slider.</p></section>
+<section id="use"><h2>Using it</h2><ol><li>Turn <strong>Now</strong> off to take control of the moment.</li><li>Move the time-of-day slider to watch the terminator sweep round. Move the date to watch the seasons change where it falls.</li><li>Play to run it. Turn <strong>Now</strong> back on to return to live.</li></ol></section>
+<section id="embed"><h2>In your own map</h2><p>Add <code>timeSlider</code> to a toolbar, and give the map at least one layer that depends on the clock. The computed day/night, sun, and moon layers all do.</p>
+<p>The clock lives in the map's store as <code>mapTime</code>, not in the panel. A chosen moment survives closing the tool, and two maps on one page can use different moments.</p></section>
+<section id="extend"><h2>Extending it</h2><p>The spinner deliberately hides while the clock is playing: an animation never reaches idle, so a busy indicator would latch on for the whole run and read as a map stuck loading rather than a map running.</p><table><tr><th>Config <code>type</code></th><td><code>timeSlider</code></td></tr><tr><th>Element</th><td><code>&lt;webmapx-time-slider-tool&gt;</code></td></tr><tr><th>Placement</th><td>toolbar</td></tr><tr><th>Source</th><td><a href="https://github.com/edugis-org/webmapx/blob/cfd8ad6f1582c9aa5a0fa80c4c05ddb071c96dbf/src/components/webmapx-time-slider-tool.ts"><code>src/components/webmapx-time-slider-tool.ts</code></a></td></tr><tr><th>Tests</th><td><a href="https://github.com/edugis-org/webmapx/blob/cfd8ad6f1582c9aa5a0fa80c4c05ddb071c96dbf/tests/map-clock-redraw.test.ts"><code>tests/map-clock-redraw.test.ts</code></a></td></tr><tr><th>Related</th><td><a href="./deeptime.html">deeptime</a>, <a href="./layerOverview.html">layerOverview</a>, <a href="./spinner.html">spinner</a></td></tr></table></section>
+<footer>Built from webmapx <code>cfd8ad6</code> and configs <code>046a5f5</code>.
+Machine-readable: <a href="./timeSlider.json">timeSlider.json</a>.</footer>
+</main>
+</body>
+</html>

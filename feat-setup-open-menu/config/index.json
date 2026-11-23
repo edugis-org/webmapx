@@ -1,0 +1,19 @@
+{
+  "description": "What the setup page offers in its Open menu and gallery, in this order. Edit titles, descriptions and order by hand; run npm run configs:index (in webmapx) to add new configs, drop removed ones and refresh thumbnails. exclude: configs in the repository that are deliberately not offered.",
+  "exclude": ["config-laptop.json", "webmapx-config.json", "demo-nl.json", "nl-migrated.json", "sample-project-draft.json", "deeptime.json", "casgis.json", "itcz.json"],
+  "configs": [
+    { "file": "demo.json", "title": "Demo", "description": "Every tool, with world and Dutch layers", "thumbnail": "thumbnails/demo.webp", "thumbnailOf": "5c85b82226b0" },
+    { "file": "nl.json", "title": "Nederland", "description": "Dutch layer catalog (PDOK and others)", "thumbnail": "thumbnails/nl.webp", "thumbnailOf": "2353d7d59b72" },
+    { "file": "world.json", "title": "World", "description": "World layers", "thumbnail": "thumbnails/world.webp", "thumbnailOf": "a677590291e0" },
+    { "file": "historisch.json", "title": "Historisch", "description": "Historical maps of the Netherlands", "thumbnail": "thumbnails/historisch.webp", "thumbnailOf": "301d09bde6fc" },
+    { "file": "casgiscache.json", "title": "CasGIS", "description": "Interactive map from the Historische vereniging Castricum", "thumbnail": "thumbnails/casgiscache.webp", "thumbnailOf": "25fdc7fda538" },
+    { "file": "tijdzones.json", "title": "Tijdzones", "description": "Time zones", "thumbnail": "thumbnails/tijdzones.webp", "thumbnailOf": "11ec0b1f5db9" },
+    { "file": "groenland.json", "title": "Groenland", "description": "", "thumbnail": "thumbnails/groenland.webp", "thumbnailOf": "fd07f55784ef" },
+    { "file": "belgie.json", "title": "België", "description": "A nice atlas showing different themed maps of Belgium", "thumbnail": "thumbnails/belgie.webp", "thumbnailOf": "7b5de5286f27" },
+    { "file": "demo-mlgl-globe.json", "title": "Globe (MapLibre)", "description": "", "thumbnail": "thumbnails/demo-mlgl-globe.webp", "thumbnailOf": "3d4d17d1b8f1" },
+    { "file": "demo-mlgl-terrain.json", "title": "Terrain (MapLibre)", "description": "", "thumbnail": "thumbnails/demo-mlgl-terrain.webp", "thumbnailOf": "89cc02958450" },
+    { "file": "demo-ol-chorepleth.json", "title": "Choropleth (OpenLayers)", "description": "", "thumbnail": "thumbnails/demo-ol-chorepleth.webp", "thumbnailOf": "b7e1c5387bdc" },
+    { "file": "caribbean.json", "title": "Caribisch gebied", "description": "Regions, countries, tectonics and economy of the Caribbean", "thumbnail": "thumbnails/caribbean.webp", "thumbnailOf": "e3235f19a3fa" },
+    { "file": "surf.json", "title": "Surfen", "description": "Surf spots, coast types, bathymetry and weather", "thumbnail": "thumbnails/surf.webp", "thumbnailOf": "068bd6351a4b" }
+  ]
+}

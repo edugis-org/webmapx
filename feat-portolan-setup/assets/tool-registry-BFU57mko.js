@@ -1,0 +1,1 @@
+import{gi as e,yi as t}from"./webmapx-shared-BsNSgmVj.js";export{e as STANDALONE_TAGS,t as TOOL_ELEMENT_TAGS};

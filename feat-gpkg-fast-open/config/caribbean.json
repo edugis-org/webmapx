@@ -1,0 +1,4091 @@
+{
+  "version": 0,
+  "project": {
+    "id": "caribbean",
+    "title": "Caribisch gebied",
+    "description": "Regions, countries, tectonics and economy of the Caribbean"
+  },
+  "map": {
+    "label": "Caribisch gebied",
+    "center": [
+      -71,
+      15
+    ],
+    "zoom": 3,
+    "type": "maplibre",
+    "style": {
+      "version": 8,
+      "sources": {},
+      "layers": [],
+      "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf"
+    }
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "568124712847-984618471-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://map.edugis.nl/cgi-bin/qgis_mapserv.fcgi?dpi=90&map=data/eduqgis/files/canadabrazilie.qgs&layers=canadabrazilie"
+        ]
+      },
+      {
+        "id": "15388750-65239347-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://map.edugis.nl/cgi-bin/qgis_mapserv.fcgi?dpi=90&map=data/eduqgis/files/caribbean.qgs&layers=caribbeanhoog"
+        ]
+      },
+      {
+        "id": "esriworldimagery-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        ],
+        "tileSize": 256,
+        "maxzoom": 22,
+        "attribution": "ESRI World Imagery"
+      }
+    ],
+    "layers": [
+      {
+        "id": "b2e7a17c-673c-4522-a6da-15ea3fbabaef",
+        "title": "Noord- en Zuid-Amerika (VN)",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/amerika_vn.geo.json",
+            "attribution": "EduGIS"
+          },
+          "labels": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "label": "Noord-Amerika (VN)"
+                  },
+                  "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                      -88,
+                      33
+                    ]
+                  }
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "label": "Zuid-Amerika (VN)"
+                  },
+                  "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                      -60,
+                      -5
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "layers": [
+          {
+            "id": "b2e7a17c-673c-4522-a6da-15ea3fbabaef-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "Continent"
+                ],
+                "Noord-Amerika (VN)",
+                "rgba(213,62,79,1)",
+                "Zuid-Amerika (VN)",
+                "rgba(255, 193, 7, 1)",
+                "rgba(0,0,0,0)"
+              ],
+              "fill-opacity": 0.5,
+              "fill-outline-color": "#444"
+            }
+          },
+          {
+            "id": "b2e7a17c-673c-4522-a6da-15ea3fbabaef-label",
+            "type": "symbol",
+            "source": "labels",
+            "layout": {
+              "text-field": [
+                "get",
+                "label"
+              ],
+              "text-font": [
+                "Noto Sans Bold"
+              ],
+              "text-size": 14,
+              "text-max-width": 8
+            },
+            "paint": {
+              "text-color": "#ffffff",
+              "text-halo-color": "rgba(0, 0, 0, 0.85)",
+              "text-halo-width": 1.5
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Noord- en Zuid-Amerika (VN)",
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam"
+              }
+            ]
+          },
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ],
+          "visible": true,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Noord- en Zuid-Amerika (VN)"
+        }
+      },
+      {
+        "id": "40b82790-3ef6-40cc-a0ec-d9cee283a58e",
+        "title": "Midden-Amerika (VN)",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/middenamerikaun.geo.json",
+            "attribution": "EduGIS"
+          },
+          "labels": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "label": "Midden-Amerika (VN)"
+                  },
+                  "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                      -102.4889,
+                      18.814
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "layers": [
+          {
+            "id": "40b82790-3ef6-40cc-a0ec-d9cee283a58e-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": "rgba(234.423,230.612,68.682,1)",
+              "fill-outline-color": "rgba(234.423,230.612,68.682,1)",
+              "fill-opacity": 0.7
+            }
+          },
+          {
+            "id": "40b82790-3ef6-40cc-a0ec-d9cee283a58e-label",
+            "type": "symbol",
+            "source": "labels",
+            "layout": {
+              "text-field": [
+                "get",
+                "label"
+              ],
+              "text-font": [
+                "Noto Sans Bold"
+              ],
+              "text-size": 14,
+              "text-max-width": 8
+            },
+            "paint": {
+              "text-color": "#ffffff",
+              "text-halo-color": "rgba(0, 0, 0, 0.85)",
+              "text-halo-width": 1.5
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Midden-Amerika (VN)",
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam"
+              }
+            ]
+          },
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ],
+          "visible": true,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Midden-Amerika (VN)"
+        }
+      },
+      {
+        "id": "93ff4382-9e5f-4c56-98b6-d38c0d7414f2",
+        "title": "Caribisch gebied (VN)",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/caribischgebiedvn.geo.json",
+            "attribution": "EduGIS"
+          },
+          "labels": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "label": "Caribisch gebied (VN)"
+                  },
+                  "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                      -72.3404,
+                      18.2867
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "layers": [
+          {
+            "id": "93ff4382-9e5f-4c56-98b6-d38c0d7414f2-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": "rgba(181.226,139.137,220.301,1)",
+              "fill-outline-color": "rgba(181.226,139.137,220.301,1)",
+              "fill-opacity": 0.7
+            }
+          },
+          {
+            "id": "93ff4382-9e5f-4c56-98b6-d38c0d7414f2-label",
+            "type": "symbol",
+            "source": "labels",
+            "layout": {
+              "text-field": [
+                "get",
+                "label"
+              ],
+              "text-font": [
+                "Noto Sans Bold"
+              ],
+              "text-size": 14,
+              "text-max-width": 8
+            },
+            "paint": {
+              "text-color": "#ffffff",
+              "text-halo-color": "rgba(0, 0, 0, 0.85)",
+              "text-halo-width": 1.5
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Caribisch gebied (VN)",
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam"
+              }
+            ]
+          },
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ],
+          "visible": true,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Caribisch gebied (VN)"
+        }
+      },
+      {
+        "id": "11c27a72-d5e9-4498-a2bf-47e9c4e918f5",
+        "title": "Grote Antillen",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/Grote_Antillen.geo.json",
+            "attribution": "EduGIS"
+          },
+          "labels": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "label": "Grote Antillen"
+                  },
+                  "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                      -76.323,
+                      20.0987
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "layers": [
+          {
+            "id": "11c27a72-d5e9-4498-a2bf-47e9c4e918f5-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": "rgba(121.684,208.196,71.91,1)",
+              "fill-outline-color": "rgba(148.315,210.214,92.706,1)",
+              "fill-opacity": 0.7
+            }
+          },
+          {
+            "id": "11c27a72-d5e9-4498-a2bf-47e9c4e918f5-label",
+            "type": "symbol",
+            "source": "labels",
+            "layout": {
+              "text-field": [
+                "get",
+                "label"
+              ],
+              "text-font": [
+                "Noto Sans Bold"
+              ],
+              "text-size": 14,
+              "text-max-width": 8
+            },
+            "paint": {
+              "text-color": "#ffffff",
+              "text-halo-color": "rgba(0, 0, 0, 0.85)",
+              "text-halo-width": 1.5
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Grote Antillen",
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam"
+              }
+            ]
+          },
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ],
+          "visible": true,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Grote Antillen"
+        }
+      },
+      {
+        "id": "40c7e3d6-0c81-40c5-a5eb-2a59791f34b3",
+        "title": "Kleine Antillen",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "id": "24d15045ae4c2401d58f228caa393115",
+                  "type": "Feature",
+                  "properties": {
+                    "id": 1,
+                    "name": null
+                  },
+                  "geometry": {
+                    "coordinates": [
+                      [
+                        [
+                          -65.24917602539062,
+                          18.91213280142871
+                        ],
+                        [
+                          -63.238677978515625,
+                          18.994608853186378
+                        ],
+                        [
+                          -62.75665283203125,
+                          18.98422041524975
+                        ],
+                        [
+                          -62.068634033203125,
+                          18.75291060960643
+                        ],
+                        [
+                          -60.860137939453125,
+                          17.846754195462125
+                        ],
+                        [
+                          -59.9688720703125,
+                          16.169834897562794
+                        ],
+                        [
+                          -59.28890991623192,
+                          13.967910024537714
+                        ],
+                        [
+                          -59.12017822265625,
+                          13.328157505129283
+                        ],
+                        [
+                          -59.2657470703125,
+                          12.21789120548874
+                        ],
+                        [
+                          -59.99344821607044,
+                          10.654028535856243
+                        ],
+                        [
+                          -60.543803907588234,
+                          10.211934785463745
+                        ],
+                        [
+                          -60.9576416015625,
+                          9.926918645909453
+                        ],
+                        [
+                          -61.40231053192308,
+                          9.947863175889175
+                        ],
+                        [
+                          -61.557769775390625,
+                          10.005367601855824
+                        ],
+                        [
+                          -61.87225341796875,
+                          10.005367601855824
+                        ],
+                        [
+                          -62.001039855768596,
+                          10.294989685935903
+                        ],
+                        [
+                          -61.77337646484375,
+                          10.633614991656046
+                        ],
+                        [
+                          -61.744537353515625,
+                          10.89399656037844
+                        ],
+                        [
+                          -62.126312255859375,
+                          10.90748167762321
+                        ],
+                        [
+                          -62.860509342552106,
+                          10.947693073030287
+                        ],
+                        [
+                          -63.59203448911761,
+                          10.783162570067494
+                        ],
+                        [
+                          -64.06436013501644,
+                          10.716394701272245
+                        ],
+                        [
+                          -64.65667782922186,
+                          10.6630650512367
+                        ],
+                        [
+                          -65.00885009765625,
+                          10.605269811799232
+                        ],
+                        [
+                          -66.09641091011497,
+                          10.85259945315048
+                        ],
+                        [
+                          -67.50064449006358,
+                          11.262250362086426
+                        ],
+                        [
+                          -68.44517141236459,
+                          11.57454949848169
+                        ],
+                        [
+                          -69.488525390625,
+                          11.980218325634908
+                        ],
+                        [
+                          -69.72198486328125,
+                          12.23668113888057
+                        ],
+                        [
+                          -70.26266594842471,
+                          12.368500441127875
+                        ],
+                        [
+                          -70.48699067675444,
+                          12.423187814147303
+                        ],
+                        [
+                          -70.55511089596685,
+                          12.629500666164965
+                        ],
+                        [
+                          -70.54733276367188,
+                          12.75756189053918
+                        ],
+                        [
+                          -70.23353576660156,
+                          12.983816808126264
+                        ],
+                        [
+                          -69.5599365234375,
+                          12.93898371009601
+                        ],
+                        [
+                          -68.86299133300781,
+                          12.632968164933288
+                        ],
+                        [
+                          -68.39881896972656,
+                          12.632968164933288
+                        ],
+                        [
+                          -67.91134578733643,
+                          12.451476442158567
+                        ],
+                        [
+                          -66.807861328125,
+                          12.236010092830114
+                        ],
+                        [
+                          -66.13344731753669,
+                          12.216230623979664
+                        ],
+                        [
+                          -65.4251118158968,
+                          12.163436968987288
+                        ],
+                        [
+                          -64.67189045274606,
+                          12.122578897072287
+                        ],
+                        [
+                          -64.01643553711962,
+                          12.083080107388303
+                        ],
+                        [
+                          -63.544921875,
+                          12.031933488233022
+                        ],
+                        [
+                          -62.579498291015625,
+                          12.212522407913042
+                        ],
+                        [
+                          -62.49092102050781,
+                          12.682545020330338
+                        ],
+                        [
+                          -62.26394753544298,
+                          13.491682688070842
+                        ],
+                        [
+                          -62.205963134765625,
+                          13.70669991206853
+                        ],
+                        [
+                          -62.1355338226987,
+                          14.5989454544104
+                        ],
+                        [
+                          -62.26230241987043,
+                          15.325536892484482
+                        ],
+                        [
+                          -62.99217224121094,
+                          16.44859791357119
+                        ],
+                        [
+                          -63.3856201171875,
+                          16.85317676709215
+                        ],
+                        [
+                          -63.72416715455813,
+                          17.244177795580555
+                        ],
+                        [
+                          -64.10535456430709,
+                          17.407301655880502
+                        ],
+                        [
+                          -65.2423445968343,
+                          17.463733773787624
+                        ],
+                        [
+                          -65.15690603947722,
+                          17.952074624139527
+                        ],
+                        [
+                          -65.16375345820806,
+                          18.233205944594513
+                        ],
+                        [
+                          -65.22171020507812,
+                          18.57140922444819
+                        ],
+                        [
+                          -65.24917602539062,
+                          18.91213280142871
+                        ]
+                      ]
+                    ],
+                    "type": "Polygon"
+                  }
+                }
+              ]
+            },
+            "attribution": "EduGIS"
+          },
+          "labels": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "label": "Kleine Antillen"
+                  },
+                  "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                      -60.8233,
+                      12.6809
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "layers": [
+          {
+            "id": "40c7e3d6-0c81-40c5-a5eb-2a59791f34b3-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": "rgba(45.361,150.364,173.093,1)",
+              "fill-outline-color": "rgba(45.361,150.364,173.093,1)",
+              "fill-opacity": 0.85
+            }
+          },
+          {
+            "id": "40c7e3d6-0c81-40c5-a5eb-2a59791f34b3-label",
+            "type": "symbol",
+            "source": "labels",
+            "layout": {
+              "text-field": [
+                "get",
+                "label"
+              ],
+              "text-font": [
+                "Noto Sans Bold"
+              ],
+              "text-size": 14,
+              "text-max-width": 8
+            },
+            "paint": {
+              "text-color": "#ffffff",
+              "text-halo-color": "rgba(0, 0, 0, 0.85)",
+              "text-halo-width": 1.5
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Kleine Antillen",
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam"
+              }
+            ]
+          },
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ],
+          "visible": true,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Kleine Antillen"
+        }
+      },
+      {
+        "id": "ecd27beb-5463-4142-b6d0-ba1a381d3e89",
+        "title": "Bovenwindse eilanden",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "id": "fe01065c724662c85a30e700d5292395",
+                  "type": "Feature",
+                  "properties": {
+                    "id": 1,
+                    "name": null
+                  },
+                  "geometry": {
+                    "coordinates": [
+                      [
+                        [
+                          -63.238029147626875,
+                          18.99409539330408
+                        ],
+                        [
+                          -65.24917602539062,
+                          18.91213280142871
+                        ],
+                        [
+                          -65.18137199436083,
+                          18.334922096432653
+                        ],
+                        [
+                          -65.15946114964163,
+                          18.046002384558623
+                        ],
+                        [
+                          -65.2423095703125,
+                          17.46398771541965
+                        ],
+                        [
+                          -64.105224609375,
+                          17.40699423419413
+                        ],
+                        [
+                          -63.72413635253906,
+                          17.244432652792838
+                        ],
+                        [
+                          -63.38542791987187,
+                          16.853170091096928
+                        ],
+                        [
+                          -62.99236452723706,
+                          16.44834554707772
+                        ],
+                        [
+                          -62.62878088905002,
+                          15.872612311651181
+                        ],
+                        [
+                          -62.23571749641579,
+                          15.285750666950634
+                        ],
+                        [
+                          -62.127625063441045,
+                          14.54510788821608
+                        ],
+                        [
+                          -62.206237741967996,
+                          13.706524720614851
+                        ],
+                        [
+                          -62.36346309902193,
+                          13.12346094802956
+                        ],
+                        [
+                          -62.49120870163492,
+                          12.682853325642043
+                        ],
+                        [
+                          -62.57964796497761,
+                          12.212670832030753
+                        ],
+                        [
+                          -62.461728947187154,
+                          11.876312224805957
+                        ],
+                        [
+                          -62.22589091160684,
+                          11.433610365354596
+                        ],
+                        [
+                          -62.126684281822264,
+                          10.906958585923022
+                        ],
+                        [
+                          -61.744388255629346,
+                          10.893736273459567
+                        ],
+                        [
+                          -61.77386801007653,
+                          10.63308653711384
+                        ],
+                        [
+                          -62.029359215289446,
+                          10.28520787143286
+                        ],
+                        [
+                          -61.97039970639392,
+                          10.140144466832382
+                        ],
+                        [
+                          -61.872133858235514,
+                          10.00469264632298
+                        ],
+                        [
+                          -61.557683144127665,
+                          10.00469264632298
+                        ],
+                        [
+                          -61.2432324300198,
+                          9.888546077662824
+                        ],
+                        [
+                          -60.958261470359716,
+                          9.927266185387523
+                        ],
+                        [
+                          -60.74207660441084,
+                          10.053074822168682
+                        ],
+                        [
+                          -59.918060302734375,
+                          10.715261364414275
+                        ],
+                        [
+                          -59.2653164195565,
+                          12.21813210535376
+                        ],
+                        [
+                          -59.120447338839426,
+                          13.328201578843291
+                        ],
+                        [
+                          -59.348098751395014,
+                          14.192561146684369
+                        ],
+                        [
+                          -59.679228078749006,
+                          15.173513991544567
+                        ],
+                        [
+                          -59.96896624018375,
+                          16.169811175162806
+                        ],
+                        [
+                          -60.32079115049706,
+                          16.90386861702771
+                        ],
+                        [
+                          -60.859995622211756,
+                          17.84737903195885
+                        ],
+                        [
+                          -61.351324863004976,
+                          18.230464642515003
+                        ],
+                        [
+                          -62.06866555456338,
+                          18.752340468333685
+                        ],
+                        [
+                          -62.75652649167404,
+                          18.984803585849747
+                        ],
+                        [
+                          -63.238029147626875,
+                          18.99409539330408
+                        ]
+                      ]
+                    ],
+                    "type": "Polygon"
+                  }
+                }
+              ]
+            },
+            "attribution": "EduGIS"
+          },
+          "labels": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "label": "Bovenwindse eilanden"
+                  },
+                  "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                      -61.5624,
+                      14.8402
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "layers": [
+          {
+            "id": "ecd27beb-5463-4142-b6d0-ba1a381d3e89-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": "rgba(190.04,60.846,142.586,1)",
+              "fill-outline-color": "rgba(190.04,60.846,142.586,1)",
+              "fill-opacity": 0.7
+            }
+          },
+          {
+            "id": "ecd27beb-5463-4142-b6d0-ba1a381d3e89-label",
+            "type": "symbol",
+            "source": "labels",
+            "layout": {
+              "text-field": [
+                "get",
+                "label"
+              ],
+              "text-font": [
+                "Noto Sans Bold"
+              ],
+              "text-size": 14,
+              "text-max-width": 8
+            },
+            "paint": {
+              "text-color": "#ffffff",
+              "text-halo-color": "rgba(0, 0, 0, 0.85)",
+              "text-halo-width": 1.5
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Bovenwindse eilanden",
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam"
+              }
+            ]
+          },
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ],
+          "visible": true,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Bovenwindse eilanden"
+        }
+      },
+      {
+        "id": "8dc3b99e-1be6-4757-adc5-2da44fca22ef",
+        "title": "Benedenwindse eilanden",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "id": "e9ec9c5a66fc57f6e48f3300267e706a",
+                  "type": "Feature",
+                  "properties": {
+                    "id": 1,
+                    "name": null
+                  },
+                  "geometry": {
+                    "coordinates": [
+                      [
+                        [
+                          -70.50338745117188,
+                          12.427188901663968
+                        ],
+                        [
+                          -69.72237953611578,
+                          12.23675823549766
+                        ],
+                        [
+                          -69.488525390625,
+                          11.980218325634908
+                        ],
+                        [
+                          -68.49373054832512,
+                          11.599776881765845
+                        ],
+                        [
+                          -68.08131502772989,
+                          11.433543668996125
+                        ],
+                        [
+                          -67.55123309729852,
+                          11.274338432373488
+                        ],
+                        [
+                          -66.7652875534443,
+                          11.045047203202115
+                        ],
+                        [
+                          -66.17043285480987,
+                          10.871504689862856
+                        ],
+                        [
+                          -65.43387295437873,
+                          10.687241572468391
+                        ],
+                        [
+                          -65.00885009765625,
+                          10.605269811799232
+                        ],
+                        [
+                          -64.30984497070312,
+                          10.71998403634585
+                        ],
+                        [
+                          -63.84854690613524,
+                          10.713345251471205
+                        ],
+                        [
+                          -63.57767718090864,
+                          10.791569287815273
+                        ],
+                        [
+                          -63.26540041714068,
+                          10.87234878285283
+                        ],
+                        [
+                          -62.874755859375,
+                          10.949281651229711
+                        ],
+                        [
+                          -62.44010235862014,
+                          10.900119475928477
+                        ],
+                        [
+                          -62.13364912797323,
+                          10.900119475928477
+                        ],
+                        [
+                          -62.28687574329666,
+                          11.596882364492956
+                        ],
+                        [
+                          -62.45403205092204,
+                          11.903732172845821
+                        ],
+                        [
+                          -62.56546958933896,
+                          12.20342857773511
+                        ],
+                        [
+                          -63.54458187951636,
+                          12.031796949280704
+                        ],
+                        [
+                          -64.38069469881496,
+                          12.122642129821969
+                        ],
+                        [
+                          -64.79875110846459,
+                          12.122642129821969
+                        ],
+                        [
+                          -65.3445469766178,
+                          12.156701110499071
+                        ],
+                        [
+                          -66.02969498132154,
+                          12.21345638199945
+                        ],
+                        [
+                          -66.80774441039125,
+                          12.236155086985136
+                        ],
+                        [
+                          -67.50450509313995,
+                          12.394991231488845
+                        ],
+                        [
+                          -67.9922375710649,
+                          12.463034326483054
+                        ],
+                        [
+                          -68.3986813026682,
+                          12.633063749106142
+                        ],
+                        [
+                          -68.86318842450112,
+                          12.633063749106142
+                        ],
+                        [
+                          -69.55994910724985,
+                          12.93883095543356
+                        ],
+                        [
+                          -70.04768158517479,
+                          12.9840981551135
+                        ],
+                        [
+                          -70.23348443390726,
+                          12.9840981551135
+                        ],
+                        [
+                          -70.40767460459483,
+                          12.870914755482943
+                        ],
+                        [
+                          -70.54702674114468,
+                          12.757680244416164
+                        ],
+                        [
+                          -70.55863941919033,
+                          12.576399762089395
+                        ],
+                        [
+                          -70.50338745117188,
+                          12.427188901663968
+                        ]
+                      ]
+                    ],
+                    "type": "Polygon"
+                  }
+                }
+              ]
+            },
+            "attribution": "EduGIS"
+          },
+          "labels": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "label": "Benedenwindse eilanden"
+                  },
+                  "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                      -66.0049,
+                      11.6975
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "layers": [
+          {
+            "id": "8dc3b99e-1be6-4757-adc5-2da44fca22ef-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": "rgba(255,193,7,1)",
+              "fill-outline-color": "rgba(255,193,7,1)",
+              "fill-opacity": 0.48
+            }
+          },
+          {
+            "id": "8dc3b99e-1be6-4757-adc5-2da44fca22ef-label",
+            "type": "symbol",
+            "source": "labels",
+            "layout": {
+              "text-field": [
+                "get",
+                "label"
+              ],
+              "text-font": [
+                "Noto Sans Bold"
+              ],
+              "text-size": 14,
+              "text-max-width": 8
+            },
+            "paint": {
+              "text-color": "#ffffff",
+              "text-halo-color": "rgba(0, 0, 0, 0.85)",
+              "text-halo-width": 1.5
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Benedenwindse eilanden",
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam"
+              }
+            ]
+          },
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ],
+          "visible": true,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Benedenwindse eilanden"
+        }
+      },
+      {
+        "id": "a3941e4d-9cf6-4bb8-8f54-d6d974f004cc",
+        "title": "ABC-eilanden",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "id": "7b85f5d0ffcf6399f9d2ae1e16aaef92",
+                  "type": "Feature",
+                  "properties": {
+                    "id": 1,
+                    "name": null
+                  },
+                  "geometry": {
+                    "coordinates": [
+                      [
+                        [
+                          -68.38763949990633,
+                          11.585249211814656
+                        ],
+                        [
+                          -68.0827624422798,
+                          11.620384153067874
+                        ],
+                        [
+                          -67.87652207976744,
+                          11.866203992004671
+                        ],
+                        [
+                          -67.81375327378584,
+                          12.199461679944505
+                        ],
+                        [
+                          -67.95722483031557,
+                          12.471020285337744
+                        ],
+                        [
+                          -68.38763949990633,
+                          12.637319248862084
+                        ],
+                        [
+                          -68.81805416949707,
+                          12.637319248862084
+                        ],
+                        [
+                          -69.25743581137081,
+                          12.80351006164463
+                        ],
+                        [
+                          -69.60714773041289,
+                          12.96085302459818
+                        ],
+                        [
+                          -70.03756240000364,
+                          13.004541813992844
+                        ],
+                        [
+                          -70.36037340219671,
+                          12.94337536035465
+                        ],
+                        [
+                          -70.53074587557599,
+                          12.751040516791463
+                        ],
+                        [
+                          -70.54867982014252,
+                          12.523547350714097
+                        ],
+                        [
+                          -70.50384495872642,
+                          12.42723959184822
+                        ],
+                        [
+                          -69.68353271484375,
+                          12.227286339104978
+                        ],
+                        [
+                          -69.488525390625,
+                          11.980218325634908
+                        ],
+                        [
+                          -68.56178204414076,
+                          11.60882833430032
+                        ],
+                        [
+                          -68.38763949990633,
+                          11.585249211814656
+                        ]
+                      ]
+                    ],
+                    "type": "Polygon"
+                  }
+                }
+              ]
+            },
+            "attribution": "EduGIS"
+          },
+          "labels": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "label": "ABC-eilanden"
+                  },
+                  "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                      -69.0871,
+                      12.3256
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "layers": [
+          {
+            "id": "a3941e4d-9cf6-4bb8-8f54-d6d974f004cc-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": "rgba(33,139,69,1)",
+              "fill-outline-color": "rgba(33,139,69,1)",
+              "fill-opacity": 0.7
+            }
+          },
+          {
+            "id": "a3941e4d-9cf6-4bb8-8f54-d6d974f004cc-label",
+            "type": "symbol",
+            "source": "labels",
+            "layout": {
+              "text-field": [
+                "get",
+                "label"
+              ],
+              "text-font": [
+                "Noto Sans Bold"
+              ],
+              "text-size": 14,
+              "text-max-width": 8
+            },
+            "paint": {
+              "text-color": "#ffffff",
+              "text-halo-color": "rgba(0, 0, 0, 0.85)",
+              "text-halo-width": 1.5
+            }
+          }
+        ],
+        "metadata": {
+          "title": "ABC-eilanden",
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam"
+              }
+            ]
+          },
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ],
+          "visible": true,
+          "userlayer": true,
+          "cansave": true,
+          "label": "ABC-eilanden"
+        }
+      },
+      {
+        "id": "49e4c94c-5f1b-45e1-aad4-da2cea57a618",
+        "title": "SSS-eilanden",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "id": "8c7ca97f37c8e2d404ba6419e54fa95b",
+                  "type": "Feature",
+                  "properties": {
+                    "id": 1,
+                    "name": null
+                  },
+                  "geometry": {
+                    "coordinates": [
+                      [
+                        [
+                          -63.342118436777426,
+                          17.986983871222662
+                        ],
+                        [
+                          -63.251055758309036,
+                          18.033170964665118
+                        ],
+                        [
+                          -63.1527080655639,
+                          18.050488001941275
+                        ],
+                        [
+                          -63.111426317991786,
+                          18.05164241046772
+                        ],
+                        [
+                          -63.09078544420544,
+                          18.043561391614745
+                        ],
+                        [
+                          -63.06285955614233,
+                          18.06549472138356
+                        ],
+                        [
+                          -63.037362006171094,
+                          18.055105590562164
+                        ],
+                        [
+                          -63.01065028715361,
+                          18.056259968763953
+                        ],
+                        [
+                          -62.96572603244283,
+                          18.019316107815627
+                        ],
+                        [
+                          -62.88680504443724,
+                          17.917680568295197
+                        ],
+                        [
+                          -62.87102084683637,
+                          17.8391040512804
+                        ],
+                        [
+                          -62.83047694701975,
+                          17.726108384624638
+                        ],
+                        [
+                          -62.831766114182,
+                          17.646273161009944
+                        ],
+                        [
+                          -62.843368618643154,
+                          17.559028081895036
+                        ],
+                        [
+                          -62.875597797700195,
+                          17.482807832906758
+                        ],
+                        [
+                          -62.903959475270995,
+                          17.439766156264767
+                        ],
+                        [
+                          -63.003365272876295,
+                          17.394730546375428
+                        ],
+                        [
+                          -63.1405663751017,
+                          17.37503256428782
+                        ],
+                        [
+                          -63.22238376435952,
+                          17.377030102408213
+                        ],
+                        [
+                          -63.304479196343976,
+                          17.40284086371757
+                        ],
+                        [
+                          -63.39384299694544,
+                          17.476659644817843
+                        ],
+                        [
+                          -63.43251801181451,
+                          17.545507471282704
+                        ],
+                        [
+                          -63.45382198903158,
+                          17.617054100078533
+                        ],
+                        [
+                          -63.46603635803383,
+                          17.708916104097256
+                        ],
+                        [
+                          -63.45746449617026,
+                          17.80211485357519
+                        ],
+                        [
+                          -63.45314468641102,
+                          17.86849515101585
+                        ],
+                        [
+                          -63.4198252557368,
+                          17.931543400958063
+                        ],
+                        [
+                          -63.38704269148823,
+                          17.958110796009848
+                        ],
+                        [
+                          -63.342118436777426,
+                          17.986983871222662
+                        ]
+                      ]
+                    ],
+                    "type": "Polygon"
+                  }
+                }
+              ]
+            },
+            "attribution": "EduGIS"
+          },
+          "labels": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "label": "SSS-eilanden"
+                  },
+                  "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                      -63.1468,
+                      17.7111
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "layers": [
+          {
+            "id": "49e4c94c-5f1b-45e1-aad4-da2cea57a618-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": "rgba(255,255,255,1)",
+              "fill-outline-color": "rgba(255,255,255,1)",
+              "fill-opacity": 0.7
+            }
+          },
+          {
+            "id": "49e4c94c-5f1b-45e1-aad4-da2cea57a618-label",
+            "type": "symbol",
+            "source": "labels",
+            "layout": {
+              "text-field": [
+                "get",
+                "label"
+              ],
+              "text-font": [
+                "Noto Sans Bold"
+              ],
+              "text-size": 14,
+              "text-max-width": 8
+            },
+            "paint": {
+              "text-color": "#ffffff",
+              "text-halo-color": "rgba(0, 0, 0, 0.85)",
+              "text-halo-width": 1.5
+            }
+          }
+        ],
+        "metadata": {
+          "title": "SSS-eilanden",
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam"
+              }
+            ]
+          },
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ],
+          "visible": true,
+          "userlayer": true,
+          "cansave": true,
+          "label": "SSS-eilanden"
+        }
+      },
+      {
+        "id": "ca13ea98-ede8-404d-a16a-0a2a412f3f76",
+        "title": "Landen",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/landen.geo.json"
+          },
+          "labels": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/landpunten.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "ca13ea98-ede8-404d-a16a-0a2a412f3f76-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "Landen"
+                ],
+                "Anguilla",
+                "rgba(255,182,51,1)",
+                "Antigua en Barbuda",
+                "#4A90E2",
+                "Aruba",
+                "#FFD700",
+                "Bahamas, De",
+                "#8B008B",
+                "Barbados",
+                "#FFA07A",
+                "Belize",
+                "#00FF7F",
+                "Bermuda",
+                "#32CD32",
+                "Bonaire, Saint Eustatius and Saba (NL)",
+                "#B22222",
+                "Brazilie",
+                "#800000",
+                "Colombia",
+                "#ADFF2F",
+                "Costa Rica",
+                "#48D1CC",
+                "Cuba",
+                "#9400D3",
+                "Curaçao",
+                "#00FFFF",
+                "Dominica",
+                "#00FF00",
+                "Dominicaanse Republiek",
+                "#FF1493",
+                "El Salvador",
+                "#20B2AA",
+                "Frans Guyana",
+                "#2E8B57",
+                "Grenada",
+                "#8A2BE2",
+                "Guadeloupe (FR)",
+                "rgba(252,252,52,1)",
+                "Guatemala",
+                "#00BFFF",
+                "Guyane",
+                "#DA70D6",
+                "Haiti",
+                "#2CBC00",
+                "Honduras",
+                "#1E90FF",
+                "Jamaica",
+                "#228B22",
+                "Kaaimaneilanden",
+                "#FF4500",
+                "Maagdeneilanden (Amerikaanse)",
+                "#FF4500",
+                "Maagdeneilanden (Britse)",
+                "#D2691E",
+                "Martinique (FR)",
+                "rgba(252,252,52,1)",
+                "Mexico",
+                "#FF69B4",
+                "Montserrat",
+                "rgba(0,49,255,1)",
+                "Navassa-eiland",
+                "#FFC0CB",
+                "Nicaragua",
+                "#00FFFF",
+                "Panama",
+                "rgba(255,243,0,1)",
+                "Puerto Rico",
+                "#FFDAB9",
+                "Saint Kitts en Nevis",
+                "#8B4513",
+                "Saint-Martin-Saint-Barthélemy (FR)",
+                "#9370DB",
+                "Saint Vincent en de Grenadines",
+                "#3CB371",
+                "Saint Lucia",
+                "#7B68EE",
+                "Sint Maarten",
+                "#20B2AA",
+                "Suriname",
+                "#9370DB",
+                "Trinidad en Tobago",
+                "rgba(34,255,255,1)",
+                "Turks- en Caicoseilanden",
+                "rgba(0,255,185,1)",
+                "Venezuela",
+                "#1E90FF",
+                "Verenigde Staten",
+                "#FFAE00",
+                "#444"
+              ],
+              "fill-opacity": 0.6,
+              "fill-outline-color": "#444"
+            },
+            "metadata": {
+              "title": "Landen"
+            }
+          },
+          {
+            "id": "ca13ea98-ede8-404d-a16a-0a2a412f3f76-label",
+            "type": "symbol",
+            "source": "labels",
+            "layout": {
+              "text-field": [
+                "get",
+                "COUNTRY"
+              ],
+              "text-size": 18,
+              "text-letter-spacing": 0.08,
+              "text-font": [
+                "Noto Sans Regular"
+              ]
+            },
+            "paint": {
+              "text-color": "rgba(78, 214, 124, 1)",
+              "text-halo-color": "black",
+              "text-halo-width": 0.7,
+              "text-halo-blur": 0
+            },
+            "metadata": {
+              "title": "Landnamen"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Landen",
+          "visible": true,
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            }
+          ],
+          "userlayer": true,
+          "cansave": true,
+          "label": "Landen",
+          "attributes": {
+            "translations": [
+              {
+                "name": "COUNTRY",
+                "translation": "Land"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "b2e21dcb-e7a8-4d0c-7199-3b04e81122221",
+        "title": "Zones in zee bij Aruba",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/Zones_in_zee_Aruba.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "b2e21dcb-e7a8-4d0c-7199-3b04e81122221-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "Zone"
+                ],
+                "EEZ Aruba",
+                "rgba(231.549,231.549,21.761,1)",
+                "Aansluitende zone Aruba",
+                "rgba(255,255,69.82,1)",
+                "Territoriale wateren Aruba",
+                "rgba(255,255,223.043,1)",
+                "#000000"
+              ],
+              "fill-opacity": 0.74,
+              "fill-outline-color": "rgba(0,0,0,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Zones in zee bij Aruba",
+          "visible": true,
+          "transparency": 20,
+          "reference": false,
+          "userlayer": true,
+          "cansave": false,
+          "abstract": "Zones in zee bij Aruba",
+          "label": "Zones in zee bij Aruba"
+        }
+      },
+      {
+        "id": "b2e21dcb-e7a8-4d0c-7299-3b04e81122221",
+        "title": "Zones in zee bij Curacao",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/Zones_in_zee_Curacao.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "b2e21dcb-e7a8-4d0c-7299-3b04e81122221-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "Zone"
+                ],
+                "EEZ Curacao",
+                "rgba(21.244,96.164,183.281,1)",
+                "Aansluitende zone Curacao",
+                "rgba(73.175,157.244,255,1)",
+                "Territoriale wateren Curacao",
+                "rgba(173.833,211.362,255,1)",
+                "#000000"
+              ],
+              "fill-opacity": 0.74,
+              "fill-outline-color": "rgba(0,0,0,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Zones in zee bij Curacao",
+          "visible": true,
+          "transparency": 20,
+          "reference": false,
+          "userlayer": true,
+          "cansave": false,
+          "abstract": "Zones in zee bij Curacao",
+          "label": "Zones in zee bij Curacao"
+        }
+      },
+      {
+        "id": "b2e21dcb-e7a8-4d0c-7399-3b04e81122221",
+        "title": "Zones in zee bij Sint Maarten",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/Zones_in_zee_Sint_Maarten.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "b2e21dcb-e7a8-4d0c-7399-3b04e81122221-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "Zone"
+                ],
+                "Aansluitende zone Sint Maarten",
+                "rgba(213,62,79,1)",
+                "Territoriale wateren Sint Maarten",
+                "rgba(255,164.886,175.031,1)",
+                "#000000"
+              ],
+              "fill-opacity": 0.74,
+              "fill-outline-color": "rgba(0,0,0,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Zones in zee bij Sint Maarten",
+          "visible": true,
+          "transparency": 20,
+          "reference": false,
+          "userlayer": true,
+          "cansave": false,
+          "abstract": "Zones in zee bij Sint Maarten",
+          "label": "Zones in zee bij Sint Maarten"
+        }
+      },
+      {
+        "id": "b2e21dcb-e7a8-4d0c-7599-3b04e81122221",
+        "title": "Zones in zee bij Caribisch Nederland",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/Zones_in_zee_bij_Caribisch_Nederland.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "b2e21dcb-e7a8-4d0c-7599-3b04e81122221-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "Zone"
+                ],
+                "EEZ bij Caribisch Nederland",
+                "rgba(33,139,69,1)",
+                "Aansluitende zone bij Caribisch Nederland",
+                "rgba(1,180,1,1)",
+                "Territoriale wateren bij Caribisch Nederland",
+                "rgba(124,253,168,1)",
+                "#000000"
+              ],
+              "fill-opacity": 0.74,
+              "fill-outline-color": "rgba(0,0,0,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Zones in zee bij Caribisch Nederland",
+          "visible": true,
+          "transparency": 20,
+          "reference": false,
+          "userlayer": true,
+          "cansave": false,
+          "abstract": "Zones in zee bij Caribisch Nederland",
+          "label": "Zones in zee bij Caribisch Nederland"
+        }
+      },
+      {
+        "id": "mapzenhillshading",
+        "title": "Reliefschaduw",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "raster-dem",
+            "tiles": [
+              "https://t1.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+              "https://t2.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+              "https://t3.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+              "https://t4.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png"
+            ],
+            "tileSize": 256,
+            "encoding": "terrarium",
+            "attribution": "NextZen"
+          }
+        },
+        "layers": [
+          {
+            "id": "mapzenhillshading-layer",
+            "type": "hillshade",
+            "source": "source",
+            "paint": {
+              "hillshade-exaggeration": 0.2
+            }
+          }
+        ],
+        "metadata": {
+          "swatch": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Crect%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%23eaf0f5%22%2F%3E%3Cpath%20d%3D%22M0%2014%206%205.5%2010%2014Z%22%20fill%3D%22%23b6c2cd%22%2F%3E%3Cpath%20d%3D%22M6%205.5%208%209.5%204%209.5Z%22%20fill%3D%22%23fbfdff%22%2F%3E%3Cpath%20d%3D%22M7%2014%2011.5%207%2016%2014Z%22%20fill%3D%22%238b98a5%22%2F%3E%3Cpath%20d%3D%22M11.5%207%2013.2%209.7%209.8%209.7Z%22%20fill%3D%22%23fbfdff%22%2F%3E%3C%2Fsvg%3E",
+          "abstract": "Deze kaartlaag geeft met schaduw een 3D-effect aan de kaartlagen.",
+          "opacity": 80,
+          "title": "Reliefschaduw (2D)",
+          "reference": false,
+          "userlayer": true,
+          "label": "Reliefschaduw"
+        }
+      },
+      {
+        "id": "abd0c37d-390d-4b9f-9752-84d42829dfe10",
+        "title": "Aardbevingen dit uur",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson",
+            "attribution": "USGS"
+          }
+        },
+        "layers": [
+          {
+            "id": "abd0c37d-390d-4b9f-9752-84d42829dfe10-layer",
+            "type": "circle",
+            "source": "source",
+            "paint": {
+              "circle-color": [
+                "interpolate",
+                [
+                  "linear"
+                ],
+                [
+                  "get",
+                  "mag"
+                ],
+                2,
+                "#faf207",
+                4,
+                "#faa907",
+                6,
+                "#fa6c07",
+                8,
+                "#fa0707"
+              ],
+              "circle-radius": [
+                "interpolate",
+                [
+                  "exponential",
+                  2
+                ],
+                [
+                  "get",
+                  "mag"
+                ],
+                2,
+                5,
+                4,
+                10,
+                6,
+                20,
+                8,
+                50
+              ],
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "#818181"
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Alle gemeten aardbevingen tot een uur geleden (USGS)",
+          "title": "Aardbevingen 1 uur geleden",
+          "userlayer": true,
+          "reference": false,
+          "label": "Aardbevingen dit uur"
+        }
+      },
+      {
+        "id": "abd0c37d-390d-4b9f-9752-84d42829dfe7",
+        "title": "Aardbevingen vandaag > 2.5",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson",
+            "attribution": "USGS"
+          }
+        },
+        "layers": [
+          {
+            "id": "abd0c37d-390d-4b9f-9752-84d42829dfe7-layer",
+            "type": "circle",
+            "source": "source",
+            "paint": {
+              "circle-color": [
+                "interpolate",
+                [
+                  "linear"
+                ],
+                [
+                  "get",
+                  "mag"
+                ],
+                2,
+                "#faf207",
+                4,
+                "#faa907",
+                6,
+                "#fa6c07",
+                8,
+                "#fa0707"
+              ],
+              "circle-radius": [
+                "interpolate",
+                [
+                  "exponential",
+                  2
+                ],
+                [
+                  "get",
+                  "mag"
+                ],
+                2,
+                5,
+                4,
+                10,
+                6,
+                20,
+                8,
+                50
+              ],
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "#818181"
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Aardbevingen tot 24 uur geleden, groter dan 2.5 op de schaal van Richter (USGS)",
+          "title": "Aardbevingen 24 uur > 2.5",
+          "userlayer": true,
+          "reference": false,
+          "label": "Aardbevingen vandaag > 2.5"
+        }
+      },
+      {
+        "id": "abd0c37d-390d-4b9f-9752-84d42829dfe8",
+        "title": "Aardbevingen deze week > 2.5",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson",
+            "attribution": "USGS"
+          }
+        },
+        "layers": [
+          {
+            "id": "abd0c37d-390d-4b9f-9752-84d42829dfe8-layer",
+            "type": "circle",
+            "source": "source",
+            "paint": {
+              "circle-color": [
+                "interpolate",
+                [
+                  "linear"
+                ],
+                [
+                  "get",
+                  "mag"
+                ],
+                2,
+                "#faf207",
+                4,
+                "#faa907",
+                6,
+                "#fa6c07",
+                8,
+                "#fa0707"
+              ],
+              "circle-radius": [
+                "interpolate",
+                [
+                  "exponential",
+                  2
+                ],
+                [
+                  "get",
+                  "mag"
+                ],
+                2,
+                5,
+                4,
+                10,
+                6,
+                20,
+                8,
+                50
+              ],
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "#818181"
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Aardbevingen tot 7 dagen geleden, groter dan 2.5 op de schaal van Richter (USGS)",
+          "title": "Aardbevingen 7 dagen > 2.5",
+          "userlayer": true,
+          "reference": false,
+          "label": "Aardbevingen deze week > 2.5"
+        }
+      },
+      {
+        "id": "abd0c37d-390d-4b9f-9752-84d42829dfe9",
+        "title": "Aardbevingen deze maand > 2.5",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_month.geojson",
+            "attribution": "USGS"
+          }
+        },
+        "layers": [
+          {
+            "id": "abd0c37d-390d-4b9f-9752-84d42829dfe9-layer",
+            "type": "circle",
+            "source": "source",
+            "paint": {
+              "circle-color": [
+                "interpolate",
+                [
+                  "linear"
+                ],
+                [
+                  "get",
+                  "mag"
+                ],
+                2,
+                "#faf207",
+                4,
+                "#faa907",
+                6,
+                "#fa6c07",
+                8,
+                "#fa0707"
+              ],
+              "circle-radius": [
+                "interpolate",
+                [
+                  "exponential",
+                  2
+                ],
+                [
+                  "get",
+                  "mag"
+                ],
+                2,
+                5,
+                4,
+                10,
+                6,
+                20,
+                8,
+                50
+              ],
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "#818181"
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Aardbevingen tot 30 dagen geleden, groter dan 2.5 op de schaal van Richter (USGS)",
+          "title": "Aardbevingen 30 dagen > 2.5",
+          "userlayer": true,
+          "reference": false,
+          "label": "Aardbevingen deze maand > 2.5"
+        }
+      },
+      {
+        "id": "abd0c37d-390d-4b9f-1111-84d42829dfe9",
+        "title": "100 aardbevingen omgeving SSS-eilanden",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/nederland/knmi/knmilaatste100bevingen_caribisch.geojson",
+            "attribution": "KNMI"
+          }
+        },
+        "layers": [
+          {
+            "id": "abd0c37d-390d-4b9f-1111-84d42829dfe9-layer",
+            "type": "circle",
+            "source": "source",
+            "paint": {
+              "circle-color": [
+                "interpolate",
+                [
+                  "linear"
+                ],
+                [
+                  "get",
+                  "mag"
+                ],
+                2,
+                "#faf207",
+                4,
+                "#faa907",
+                6,
+                "#fa6c07",
+                8,
+                "#fa0707"
+              ],
+              "circle-radius": [
+                "interpolate",
+                [
+                  "exponential",
+                  2
+                ],
+                [
+                  "get",
+                  "mag"
+                ],
+                2,
+                5,
+                4,
+                10,
+                6,
+                20,
+                8,
+                50
+              ],
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "#818181"
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "De 100 meest recente aardbevingen in de omgeving van de SSS-eilanden",
+          "title": "Aardbevingen omgeving SSS-eilanden",
+          "userlayer": true,
+          "reference": false,
+          "label": "100 aardbevingen omgeving SSS-eilanden"
+        }
+      },
+      {
+        "id": "8fe6de0f-dfae-4f64-9cdd-b4c28a7a5612",
+        "title": "Breuken",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "data/caribbean/Faults.json",
+            "attribution": "unknown"
+          }
+        },
+        "layers": [
+          {
+            "id": "8fe6de0f-dfae-4f64-9cdd-b4c28a7a5612-layer",
+            "type": "line",
+            "source": "source",
+            "paint": {
+              "line-color": "#fa0707",
+              "line-width": 1.5
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Breuken",
+          "userlayer": true,
+          "reference": false,
+          "label": "Breuken"
+        }
+      },
+      {
+        "id": "8fe6de0f-dfae-4f64-9cdd-b4c28a7a5611",
+        "title": "Plaatgrenzen",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "data/caribbean/plaatgrenzen.json",
+            "attribution": "unknown"
+          }
+        },
+        "layers": [
+          {
+            "id": "8fe6de0f-dfae-4f64-9cdd-b4c28a7a5611-layer",
+            "type": "line",
+            "source": "source",
+            "paint": {
+              "line-color": "#000",
+              "line-width": 2
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Plaatgrenzen",
+          "userlayer": true,
+          "reference": false,
+          "label": "Plaatgrenzen"
+        }
+      },
+      {
+        "id": "46dfb472-2cd8-42b1-97a6-5a6f7bd63427",
+        "title": "Platen",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "data/caribbean/platen.json",
+            "attribution": "unknown"
+          }
+        },
+        "layers": [
+          {
+            "id": "46dfb472-2cd8-42b1-97a6-5a6f7bd63427-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "Naam"
+                ],
+                "Afrikaanse plaat",
+                "rgba(204.519,90.124,210.214,1)",
+                "Altiplano plaat",
+                "#F0810F",
+                "Amur plaat",
+                "rgba(255,106.264,7,1)",
+                "Anatolische plaat",
+                "#F44336",
+                "Antarctische plaat",
+                "rgba(78.692,144.388,197.706,1)",
+                "Arabische plaat",
+                "#8BC34A",
+                "Australische plaat",
+                "#FFC107",
+                "Balmoral Rif plaat",
+                "#FF5722",
+                "Bandazee plaat",
+                "#795548",
+                "Birds Head plaat",
+                "#009688",
+                "Burma plaat",
+                "#03A9F4",
+                "Caribische plaat",
+                "#CDDC39",
+                "Caroline plaat",
+                "#4CAF50",
+                "Cocos plaat",
+                "#FF9800",
+                "Conway Rif plaat",
+                "#FFEB3B",
+                "Easter plaat",
+                "#9E9E9E",
+                "Egeische Zee plaat",
+                "#8E44AD",
+                "Euraziatische plaat",
+                "rgba(18,185.602,243,1)",
+                "Filipijnenzee plaat",
+                "rgba(174,119.076,39,1)",
+                "Futuna plaat",
+                "#1ABC9C",
+                "Galapagos plaat",
+                "#2196F3",
+                "Indiaase plaat",
+                "rgba(238.054,49.483,30.018,1)",
+                "Juan de Fuca plaat",
+                "rgba(255,106.264,7,1)",
+                "Juan Fernandez plaat",
+                "#FFC300",
+                "Kermadec plaat",
+                "#E67E22",
+                "Manus plaat",
+                "#9B59B6",
+                "Maoke plaat",
+                "#8BC7B8",
+                "Mariana plaat",
+                "#F1C40F",
+                "Molukkenzee plaat",
+                "#D35400",
+                "Nazca plaat",
+                "#2ECC71",
+                "Nieuwe Hebriden plaat",
+                "#2C3E50",
+                "Niuafo'ou plaat",
+                "#8E8E8E",
+                "Noord Amerikaanse plaat",
+                "rgba(109.297,170.269,79.72,1)",
+                "Noord-Andes plaat",
+                "#F7DC6F",
+                "Noordelijke Bismarck plaat",
+                "#00B894",
+                "Okhotsk plaat",
+                "#9CCC65",
+                "Okinawa plaat",
+                "rgba(123.233,56.76,255,1)",
+                "Pacifische plaat",
+                "rgba(172.794,170.552,254.571,1)",
+                "Panama plaat",
+                "#FF1744",
+                "Rivera plaat",
+                "#4CAF4F",
+                "Sandwich plaat",
+                "#6D4C41",
+                "Scotia plaat",
+                "#FF6D00",
+                "Shetland plaat",
+                "#00E5FF",
+                "Solomonzee plaat",
+                "#FFA000",
+                "Somalische plaat",
+                "#C0392B",
+                "Sunda plaat",
+                "#03DAC6",
+                "Timor plaat",
+                "#9FB6CD",
+                "Tonga plaat",
+                "#B3E5FC",
+                "Woodlark plaat",
+                "#FFD600",
+                "Yangtze plaat",
+                "#4DB6AC",
+                "Zuid Amerikaanse",
+                "rgba(106.135,62.615,231.195,1)",
+                "Zuidelijke Bismarck plaat",
+                "#95A5A6",
+                "#E91E63"
+              ],
+              "fill-opacity": 0.6,
+              "fill-outline-color": "#000000"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Platen",
+          "userlayer": true,
+          "reference": false,
+          "label": "Platen"
+        }
+      },
+      {
+        "id": "2335aff7-f86c-47bf-95e6-b2a82ed4d61e",
+        "title": "Oceaanbodem ouderdom",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "data/caribbean/OceanAgeDrop.json",
+            "attribution": "unknown"
+          }
+        },
+        "layers": [
+          {
+            "id": "2335aff7-f86c-47bf-95e6-b2a82ed4d61e-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "interpolate",
+                [
+                  "linear"
+                ],
+                [
+                  "get",
+                  "Ouderdom in miljoen jaar"
+                ],
+                0,
+                "rgb(158,1,66)",
+                10,
+                "rgb(213,62,79)",
+                20,
+                "rgb(244,109,67)",
+                30,
+                "rgb(253,174,97)",
+                40,
+                "rgb(254,224,139)",
+                50,
+                "rgb(255,255,191)",
+                70,
+                "rgb(230,245,152)",
+                120,
+                "rgb(171,221,164)",
+                140,
+                "rgb(102,194,165)",
+                150,
+                "rgb(50,136,189)",
+                250,
+                "rgb(5,48,97)"
+              ],
+              "fill-opacity": 0.8,
+              "fill-outline-color": "#444"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Oceaanbodem ouderdom",
+          "abstract": "Aardkorst jonger dan 600 miljoen jaar oud. Data afkomstig van EarthByte",
+          "userlayer": true,
+          "cansave": true,
+          "label": "Oceaanbodem ouderdom"
+        }
+      },
+      {
+        "id": "b61869cf-2c33-4fc6-abba-01623d1fb939",
+        "title": "Vulkanen",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "data/caribbean/vulkanen.geojson",
+            "attribution": "unknown"
+          }
+        },
+        "layers": [
+          {
+            "id": "b61869cf-2c33-4fc6-abba-01623d1fb939-layer",
+            "type": "circle",
+            "source": "source",
+            "paint": {
+              "circle-color": [
+                "interpolate",
+                [
+                  "linear"
+                ],
+                [
+                  "get",
+                  "PEI - Population Exposure Index (schaal 1-7)"
+                ],
+                1,
+                "#7afaa5",
+                3,
+                "#f4fa7a",
+                5,
+                "#fab67a",
+                7,
+                "#fa7a7a"
+              ],
+              "circle-radius": 7,
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "rgba(0,0,0,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "De PEI geeft aan of een uitbarsting veel schade en slachtoffers zou veroorzaken. Let wel op: de kaartlaag toont ook slapende vulkanen. Global Volcano Model (GVM) and The International Association of Volcanology and Chemistry of the Earth's Interior (IAVCEI)",
+          "title": "Vulkanen",
+          "userlayer": true,
+          "activeEdits": [
+            0
+          ],
+          "label": "Vulkanen"
+        }
+      },
+      {
+        "id": "b0e4238c-8743-4750-8dd8-ebec109fb2be",
+        "title": "Hotspots",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/tektoniek/hotspotsdata.geojson?dl=0",
+            "attribution": "unknown"
+          }
+        },
+        "layers": [
+          {
+            "id": "b0e4238c-8743-4750-8dd8-ebec109fb2be-layer",
+            "type": "circle",
+            "source": "source",
+            "paint": {
+              "circle-color": "rgba(255,255,0,1)",
+              "circle-radius": 10,
+              "circle-stroke-width": 2.9,
+              "circle-stroke-color": "rgba(255,0,0,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Hotspots",
+          "userlayer": true,
+          "label": "Hotspots"
+        }
+      },
+      {
+        "id": "d3d300b3-2d90-44aa-9844-9c87cadd8916",
+        "title": "Troggen-Bekkens",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "data/caribbean/Troggen-Bekkensdata.json",
+            "attribution": "unknown"
+          }
+        },
+        "layers": [
+          {
+            "id": "d3d300b3-2d90-44aa-9844-9c87cadd8916-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": "rgba(36.137,63.29,144.749,1)",
+              "fill-opacity": 1,
+              "fill-outline-color": "rgba(128,128,128,0)"
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Deze kaartlaag toont oceaanbodem van meer dan 6000 meter diep.",
+          "title": "Troggen-Bekkens",
+          "userlayer": true,
+          "activeEdits": [
+            0
+          ],
+          "transparency": 0,
+          "reference": false,
+          "label": "Troggen-Bekkens"
+        }
+      },
+      {
+        "id": "b2e21dcb-e7a8-4d0c-8999-3b04e81111111",
+        "title": "Economisch Exclusieve Zones - EEZ",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/EEZ.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "b2e21dcb-e7a8-4d0c-8999-3b04e81111111-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "Land"
+                ],
+                "Anguilla",
+                "rgba(255,182.385,51,1)",
+                "Antigua en Barbuda",
+                "#4A90E2",
+                "Aruba",
+                "#FFD700",
+                "Bahamas, De",
+                "#8B008B",
+                "Barbados",
+                "#FFA07A",
+                "Belize",
+                "#00FF7F",
+                "Bermuda",
+                "#32CD32",
+                "Bonaire, Sint Eustatius en Saba (NL)",
+                "#B22222",
+                "Britse Maagdeneilanden",
+                "#D2691E",
+                "Colombia",
+                "#ADFF2F",
+                "Costa Rica",
+                "#48D1CC",
+                "Cuba",
+                "#9400D3",
+                "Curaçao",
+                "#00FFFF",
+                "Dominica",
+                "#00FF00",
+                "Dominicaanse Republiek",
+                "#FF1493",
+                "El Salvador",
+                "#20B2AA",
+                "Frans Guiana",
+                "#2E8B57",
+                "Grenada",
+                "#8A2BE2",
+                "Guadeloupe-Martinique",
+                "rgba(252.086,252.086,52.441,1)",
+                "Guatemala",
+                "#00BFFF",
+                "Guyana",
+                "#DA70D6",
+                "Haiti",
+                "#2CBC00",
+                "Honduras",
+                "#1E90FF",
+                "Jamaica",
+                "#228B22",
+                "Kaaiman Eilanden",
+                "#FF4500",
+                "Maagdeneilanden",
+                "#FF4500",
+                "Martinique",
+                "#FF7F50",
+                "Mexico",
+                "#FF69B4",
+                "Montserrat",
+                "rgba(0.482,49.485,255,1)",
+                "Navassa Island",
+                "#FFC0CB",
+                "Nicaragua",
+                "#00FFFF",
+                "Panama",
+                "rgba(255,242.931,0,1)",
+                "Puerto Rico",
+                "#FFDAB9",
+                "Saint Kitts en Nevis",
+                "#8B4513",
+                "Saint Martin et Saint Barthélemy (FR)",
+                "#9370DB",
+                "Saint Vincent en de Grenadines",
+                "#3CB371",
+                "Sint Lucia",
+                "#7B68EE",
+                "Sint Maarten",
+                "#20B2AA",
+                "Suriname",
+                "#9370DB",
+                "Turks en Caicos Eilanden",
+                "rgba(0,255,185.455,1)",
+                "Trinidad en Tobago",
+                "rgba(34.034,255,255,1)",
+                "Venezuela",
+                "#1E90FF",
+                "Verenigde Staten",
+                "#FFAE00",
+                "#444"
+              ],
+              "fill-opacity": 0.44999999999999996,
+              "fill-outline-color": "#444"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Economisch Exclusieve Zones - EEZ",
+          "visible": true,
+          "transparency": 30,
+          "reference": false,
+          "userlayer": true,
+          "cansave": false,
+          "abstract": "Een Exclusieve Economische Zone (EEZ) is een gebied dat zich tot 200 zeemijl (370,4 km) buiten de kust van een staat uitstrekt. Daar waar de EEZ van verschillende landen overlapt, is in verdragen afgesproken hoe grenzen lopen. Zo wordt bepaald welk land er in een bepaald zeegebied recht heeft op exploitatie van de aanwezige grondstoffen, op visserij en op wetenschappelijk onderzoek. Het land is hier tevens verantwoordelijk voor de bescherming van de natuur.",
+          "label": "Economisch Exclusieve Zones - EEZ"
+        }
+      },
+      {
+        "id": "b2e21dcb-e7a8-4d0c-8999-3b04e81122221",
+        "title": "Associatie van Caribische Staten - ACS",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/EEZ.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "b2e21dcb-e7a8-4d0c-8999-3b04e81122221-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "ACS"
+                ],
+                "Nee",
+                "rgba(213,62,79,1)",
+                "Volledig lid",
+                "rgba(33,139,69,1)",
+                "Geassocieerd lid",
+                "rgba(150.75,255,0,1)",
+                "#444"
+              ],
+              "fill-opacity": 0.6,
+              "fill-outline-color": "#444"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Associatie van Caribische Staten - ACS",
+          "visible": true,
+          "transparency": 20,
+          "reference": false,
+          "userlayer": true,
+          "cansave": false,
+          "abstract": "De Associatie van Caribische Staten is een adviesvereniging van landen gecentreerd rond het Caribische bekken. De organisatie werd opgericht met het doel om overleg, samenwerking en geco�rdineerde actie tussen alle landen van het Caribische gebied te bevorderen. Het primaire doel van de ACS is het bevorderen van meer handel tussen de naties, het verbeteren van het vervoer, het ontwikkelen van duurzaam toerisme, en grotere en effectievere reacties op lokale natuurrampen mogelijk te maken.",
+          "label": "Associatie van Caribische Staten - ACS"
+        }
+      },
+      {
+        "id": "b2e21dcb-e7a8-4d0c-8999-3b04e811444421",
+        "title": "Caribbean Community - CariCom",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/EEZ.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "b2e21dcb-e7a8-4d0c-8999-3b04e811444421-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "Caricom"
+                ],
+                "Nee",
+                "rgba(213,62,79,1)",
+                "Volledig lid",
+                "rgba(33,139,69,1)",
+                "Geassocieerd lid",
+                "rgba(150.75,255,0,1)",
+                "#444"
+              ],
+              "fill-opacity": 0.6,
+              "fill-outline-color": "#444"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Caricom",
+          "visible": true,
+          "transparency": 20,
+          "reference": false,
+          "userlayer": true,
+          "cansave": false,
+          "abstract": "Deze kaartlaag toont de leden en de geassocieerde leden van de caricom",
+          "label": "Caribbean Community - CariCom"
+        }
+      },
+      {
+        "id": "countrygdpcap",
+        "title": "Bruto Binnenlands Product per inwoner",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,gdp_md_est,gdp_p_cap,economy&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89,
+              180,
+              83.6341006530001
+            ]
+          }
+        },
+        "layers": [
+          {
+            "id": "countrygdpcap-layer",
+            "type": "fill",
+            "source": "source",
+            "source-layer": "public.ne_10m_admin_0_countries",
+            "paint": {
+              "fill-color": [
+                "case",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  2000
+                ],
+                "#f7fcfd",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  4000
+                ],
+                "#e0ecf4",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  8500
+                ],
+                "#bfd3e6",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  14000
+                ],
+                "#9ebcda",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  20000
+                ],
+                "#8c96c6",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  30000
+                ],
+                "#8c6bb1",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  45000
+                ],
+                "#88419d",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  250351
+                ],
+                "#6e016b",
+                "#6e016b"
+              ],
+              "fill-outline-color": "white",
+              "fill-opacity": 0.8
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Bruto binnenlands product volgens Natural Earth, 2013 - 2016, gecorrigeerd voor koopkrachtpariteit in $",
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam",
+                "unit": ""
+              },
+              {
+                "name": "gdp_md_est",
+                "translation": "BBP",
+                "unit": " miljoen $"
+              },
+              {
+                "name": "gdp_p_cap",
+                "translation": "BBP per inw",
+                "unit": " $"
+              },
+              {
+                "name": "economy",
+                "translation": "Economische categorie",
+                "unit": ""
+              }
+            ]
+          },
+          "title": "Bruto Binnenlands Product per inwoner",
+          "label": "Bruto Binnenlands Product per inwoner"
+        }
+      },
+      {
+        "id": "populationdensity",
+        "title": "Bevolkingsdichtheid | Regio",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces_lakes_pop/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,pop_sum,pop_dens,admin,type,type_en&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89,
+              180,
+              83.6341006530001
+            ],
+            "attribution": "<a href=\"https://www.worldpop.org/\">WorldPop</a>"
+          }
+        },
+        "layers": [
+          {
+            "id": "populationdensity-layer",
+            "type": "fill",
+            "source": "source",
+            "source-layer": "public.ne_10m_admin_1_states_provinces_lakes_pop",
+            "paint": {
+              "fill-color": [
+                "case",
+                [
+                  "==",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  0
+                ],
+                "#ffffff",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  10
+                ],
+                "#fff7ec",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  26
+                ],
+                "#fee8c8",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  48
+                ],
+                "#fdd49e",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  72
+                ],
+                "#fdbb84",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  107
+                ],
+                "#fc8d59",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  174
+                ],
+                "#ef6548",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  309
+                ],
+                "#d7301f",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  759
+                ],
+                "#b30000",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  600104
+                ],
+                "#7f0000",
+                "#7f0000"
+              ],
+              "fill-opacity": 0.8
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Bevolking 2020 per Natural Earth admin level 1 (landsdeel). Bevolking berekend uit 1km WorldPop mosaic grid 2020",
+          "attributes": {
+            "translations": [
+              {
+                "name": "pop_dens",
+                "translation": "bevolkingsdichtheid",
+                "unit": " inw/km2"
+              }
+            ]
+          },
+          "title": "Bevolkingsdichtheid | Regio",
+          "label": "Bevolkingsdichtheid | Regio"
+        }
+      },
+      {
+        "id": "cd1ae11e-6625-439a-a6ee-decccd44634e",
+        "title": "Oceaanstroming",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/oceaanstromingen.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "cd1ae11e-6625-439a-a6ee-decccd44634e-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "Temperatuur"
+                ],
+                "Warm",
+                "#ff3737",
+                "Koud",
+                "#0095fb",
+                "#444"
+              ],
+              "fill-opacity": 0.6,
+              "fill-outline-color": "#444"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Oceaanstromingen",
+          "abstract": "Windgedreven oceaancirculatie: De stromingen in de oceaan worden aangedreven aan het zeeoppervlak, vooral door de krachten die worden uitgeoefend door de wind.  https://www.knmi.nl/kennis-en-datacentrum/achtergrond/windgedreven-oceaancirculatie",
+          "label": "Oceaanstroming"
+        }
+      },
+      {
+        "id": "624eeac3-d7cf-4d0f-86c0-5527fb062aeb",
+        "title": "Mondiale luchtstroming",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/mondiale_luchtstroming.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "624eeac3-d7cf-4d0f-86c0-5527fb062aeb-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": "rgba(199.428,235.923,255,1)",
+              "fill-opacity": 0.6,
+              "fill-outline-color": "#444"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Mondiale luchtstroming",
+          "abstract": "Vereenvoudigde luchtstroming als de planeet een gladde bol zou zijn zonder water.",
+          "transparency": 20,
+          "legendclipped": false,
+          "visible": true,
+          "reference": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Mondiale luchtstroming"
+        }
+      },
+      {
+        "id": "624eeac3-d7cf-4444-86c0-5527fb062aeb",
+        "title": "Oceanen en Zeeen",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/caribbean/OceanenZeeendata.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "624eeac3-d7cf-4444-86c0-5527fb062aeb-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "Naam"
+                ],
+                "Caribische Zee",
+                "rgba(28.647,177.297,255,1)",
+                "Golf van Mexico",
+                "rgba(77.857,255,138.019,1)",
+                "Noordelijke Atlantische Oceaan",
+                "rgba(0,121.547,185.084,1)",
+                "Noordelijke Grote of Stille Oceaan",
+                "rgba(13.268,146.756,58.604,1)",
+                "#444"
+              ],
+              "fill-opacity": 0.9,
+              "fill-outline-color": "#444"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Oceanen en Zeeen",
+          "abstract": "Grenzen van oceanen en zeeen volgen het IHO (Internationaal Hydrografische Organisatie) https://www.marineregions.org",
+          "transparency": 20,
+          "legendclipped": false,
+          "visible": true,
+          "reference": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Oceanen en Zeeen"
+        }
+      },
+      {
+        "id": "koppen-klimaat-kaart",
+        "title": "Klimaat",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.climate_2007_koppen_geiger/mvt/{z}/{x}/{y}?geom_column=geom&columns=klassificatie,klimaat,neerslagverdeling,temperatuurverschil&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89.5,
+              180,
+              83.6
+            ]
+          }
+        },
+        "layers": [
+          {
+            "id": "koppen-klimaat-kaart-layer",
+            "type": "fill",
+            "source": "source",
+            "source-layer": "public.climate_2007_koppen_geiger",
+            "paint": {
+              "fill-outline-color": "rgba(255,255,255,0)",
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "klassificatie"
+                ],
+                "Af",
+                "#1300FC",
+                "Am",
+                "#0E73FC",
+                "Aw",
+                "#3AAAFC",
+                "BWh",
+                "#FD0000",
+                "BWk",
+                "#FE9594",
+                "BSh",
+                "#FE9594",
+                "BSk",
+                "#FDDA62",
+                "Csa",
+                "#FCFE04",
+                "Csb",
+                "#CECC08",
+                "Cwa",
+                "#94FE97",
+                "Cwb",
+                "#5FC765",
+                "Cwc",
+                "#369633",
+                "Cfa",
+                "#C5FE4B",
+                "Cfb",
+                "#63FD32",
+                "Cfc",
+                "#35C600",
+                "Dsa",
+                "#FC00FB",
+                "Dsb",
+                "#C900C4",
+                "Dsc",
+                "#983396",
+                "Dsd",
+                "#8E5D92",
+                "Dwa",
+                "#A5AFFF",
+                "Dwb",
+                "#4A78E3",
+                "Dwc",
+                "#484EB4",
+                "Dwd",
+                "#30008A",
+                "Dfa",
+                "#00FCFD",
+                "Dfb",
+                "#3DC6FA",
+                "Dfc",
+                "#007E7E",
+                "Dfd",
+                "#004660",
+                "ET",
+                "#AEB0AD",
+                "EH",
+                "#AEB0AD",
+                "EF",
+                "#686967",
+                "#000000"
+              ],
+              "fill-opacity": 1
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Klimaatkaart volgens Koppen Geiger. Gebruik de i-tool en voor uitgebreidere informatie per klimaatgebied. De klassificatie bestaat uit 3 letters. De eerste letter staat voor het type klimaat. A: Tropisch, B: Droog, C: Gematigd, D: Landklimaat, E: Poolklimaat. De klassificatie wordt verder uitgelegd op wikipedia: https://nl.wikipedia.org/wiki/Klimaatclassificatie_van_K%C3%B6ppen",
+          "title": "Klimaat Koppen",
+          "label": "Klimaat"
+        }
+      },
+      {
+        "id": "568124712847-984618471",
+        "title": "1650 \"Pascaert van de Carybes\"",
+        "type": "raster",
+        "source": "568124712847-984618471-source",
+        "metadata": {
+          "swatch": "#d2c3a9",
+          "title": "Pascaert van de Carybes - 1650",
+          "abstract": "Op deze oude kaart uit 1650 zie je in het zuiden het Caribisch gebied liggen. De kaart laat zien dat de Nederlanders hier in die tijd actief waren en nieuwe eilanden toeeigenden. Ook de kusten van Zuid-Amerika zijn goed zichtbaar. Je kunt de mondingen van grote rivieren, zoals de Amazone en de Orinoco, zien. Je ziet ook Noordoost-Brazilie, het was een belangrijk gebied tijdens de Nederlandse overheersing. De kaart werd gemaakt door Anthonie Jacobsz Theunisz in Amsterdam.",
+          "attribution": "-",
+          "bounds": [
+            -102,
+            -56,
+            5,
+            42
+          ],
+          "label": "1650 \"Pascaert van de Carybes\""
+        }
+      },
+      {
+        "id": "15388750-65239347",
+        "title": "1654 \"Pascaerte van West Indien\"",
+        "type": "raster",
+        "source": "15388750-65239347-source",
+        "metadata": {
+          "swatch": "#ffffff",
+          "title": "Pascaerte van West Indien",
+          "abstract": "De Pascaerte van West Indien is een historische zeekaart die het gebied van de Caribische Zee tot aan de Golf van Mexico bestrijkt. Deze kaart werd gemaakt door Theunis Jacobsz en dateert uit 1654. Het is een prachtig versierde en belangrijke zeekaart die Florida, de Golfkust, het Caribisch gebied, Midden-Amerika en het gebied ten zuiden van de monding van de Delaware-rivier toont. De kaart diende als een prototype voor latere Nederlandse en Engelse zeekaarten van dit gebied en werd gekopieerd door cartografen uit de Gouden Eeuw.",
+          "attribution": "-",
+          "bounds": [
+            -102,
+            -56,
+            5,
+            42
+          ],
+          "label": "1654 \"Pascaerte van West Indien\""
+        }
+      },
+      {
+        "id": "administratieve-grenzen",
+        "title": "Administratieve grenzen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightadminborders.json",
+        "metadata": {
+          "swatch": "#9e9cab"
+        }
+      },
+      {
+        "id": "gebouwen",
+        "title": "Gebouwen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightbuildings.json",
+        "metadata": {
+          "swatch": "#D2B69A"
+        }
+      },
+      {
+        "id": "plaatsen",
+        "title": "Plaatsen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightpoi.json",
+        "metadata": {
+          "swatch": "black"
+        }
+      },
+      {
+        "id": "plaatsnamen",
+        "title": "Plaatsnamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightpoiname.json",
+        "metadata": {
+          "swatch": "#666"
+        }
+      },
+      {
+        "id": "snelwegen",
+        "title": "Snelwegen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightroads.json",
+        "metadata": {
+          "swatch": "#ffdaa6"
+        }
+      },
+      {
+        "id": "snelwegnamen",
+        "title": "Snelwegnamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/brightmotorwayname.json",
+        "metadata": {
+          "swatch": "rgba(0, 0, 0, 1)"
+        }
+      },
+      {
+        "id": "spoorwegen",
+        "title": "Spoorwegen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightrail.json",
+        "metadata": {
+          "swatch": "#bbb"
+        }
+      },
+      {
+        "id": "water-en-waterwegen",
+        "title": "Water en waterwegen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightwater.json",
+        "metadata": {
+          "swatch": "#a0c8f0"
+        }
+      },
+      {
+        "id": "waternamen",
+        "title": "Waternamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightwatername.json",
+        "metadata": {
+          "swatch": "#74aee9"
+        }
+      },
+      {
+        "id": "wegen",
+        "title": "Wegen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightallroads.json",
+        "metadata": {
+          "swatch": "hsla(0, 0%, 89%, 0.56)"
+        }
+      },
+      {
+        "id": "wegnamen",
+        "title": "Wegnamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightallroadnames.json",
+        "metadata": {
+          "swatch": "hsl(30, 23%, 62%)"
+        }
+      },
+      {
+        "id": "esriworldimagery",
+        "title": "ESRI | Satelliet",
+        "type": "raster",
+        "source": "esriworldimagery-source",
+        "metadata": {
+          "swatch": "#596138",
+          "reference": true,
+          "title": "ESRI | Satelliet",
+          "userlayer": true,
+          "label": "ESRI | Satelliet"
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeBackground": "esriworldimagery",
+    "activeLayers": [
+      {
+        "ref": "esriworldimagery",
+        "visible": true
+      },
+      {
+        "ref": "b2e7a17c-673c-4522-a6da-15ea3fbabaef",
+        "visible": true
+      }
+    ],
+    "activeExclusiveLayers": {
+      "basemap": "esriworldimagery"
+    }
+  },
+  "tools": {
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "panel": {
+        "enabled": true,
+        "position": "after"
+      },
+      "items": [
+        {
+          "id": "search",
+          "type": "search",
+          "enabled": true,
+          "title": "Search",
+          "provider": "nominatim",
+          "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim"
+        },
+        {
+          "id": "layers",
+          "type": "layerTree",
+          "enabled": true,
+          "title": "Catalog",
+          "tree": [
+            {
+              "label": "Regio's",
+              "expanded": true,
+              "children": [
+                {
+                  "label": "Noord- en Zuid-Amerika (VN)",
+                  "layerId": "b2e7a17c-673c-4522-a6da-15ea3fbabaef",
+                  "checked": true
+                },
+                {
+                  "label": "Midden-Amerika (VN)",
+                  "layerId": "40b82790-3ef6-40cc-a0ec-d9cee283a58e"
+                },
+                {
+                  "label": "Caribisch gebied (VN)",
+                  "layerId": "93ff4382-9e5f-4c56-98b6-d38c0d7414f2"
+                },
+                {
+                  "label": "Grote Antillen",
+                  "layerId": "11c27a72-d5e9-4498-a2bf-47e9c4e918f5"
+                },
+                {
+                  "label": "Kleine Antillen",
+                  "layerId": "40c7e3d6-0c81-40c5-a5eb-2a59791f34b3"
+                },
+                {
+                  "label": "Bovenwindse eilanden",
+                  "layerId": "ecd27beb-5463-4142-b6d0-ba1a381d3e89"
+                },
+                {
+                  "label": "Benedenwindse eilanden",
+                  "layerId": "8dc3b99e-1be6-4757-adc5-2da44fca22ef"
+                },
+                {
+                  "label": "ABC-eilanden",
+                  "layerId": "a3941e4d-9cf6-4bb8-8f54-d6d974f004cc"
+                },
+                {
+                  "label": "SSS-eilanden",
+                  "layerId": "49e4c94c-5f1b-45e1-aad4-da2cea57a618"
+                }
+              ]
+            },
+            {
+              "label": "Landen",
+              "children": [
+                {
+                  "label": "Landen",
+                  "layerId": "ca13ea98-ede8-404d-a16a-0a2a412f3f76"
+                }
+              ]
+            },
+            {
+              "label": "Caribisch deel van het Koninkrijk",
+              "children": [
+                {
+                  "label": "Zones in zee bij Aruba",
+                  "layerId": "b2e21dcb-e7a8-4d0c-7199-3b04e81122221"
+                },
+                {
+                  "label": "Zones in zee bij Curacao",
+                  "layerId": "b2e21dcb-e7a8-4d0c-7299-3b04e81122221"
+                },
+                {
+                  "label": "Zones in zee bij Sint Maarten",
+                  "layerId": "b2e21dcb-e7a8-4d0c-7399-3b04e81122221"
+                },
+                {
+                  "label": "Zones in zee bij Caribisch Nederland",
+                  "layerId": "b2e21dcb-e7a8-4d0c-7599-3b04e81122221"
+                }
+              ]
+            },
+            {
+              "label": "Tektoniek",
+              "children": [
+                {
+                  "label": "Reliefschaduw",
+                  "layerId": "mapzenhillshading"
+                },
+                {
+                  "label": "Aardbevingen dit uur",
+                  "layerId": "abd0c37d-390d-4b9f-9752-84d42829dfe10"
+                },
+                {
+                  "label": "Aardbevingen vandaag > 2.5",
+                  "layerId": "abd0c37d-390d-4b9f-9752-84d42829dfe7"
+                },
+                {
+                  "label": "Aardbevingen deze week > 2.5",
+                  "layerId": "abd0c37d-390d-4b9f-9752-84d42829dfe8"
+                },
+                {
+                  "label": "Aardbevingen deze maand > 2.5",
+                  "layerId": "abd0c37d-390d-4b9f-9752-84d42829dfe9"
+                },
+                {
+                  "label": "100 aardbevingen omgeving SSS-eilanden",
+                  "layerId": "abd0c37d-390d-4b9f-1111-84d42829dfe9"
+                },
+                {
+                  "label": "Breuken",
+                  "layerId": "8fe6de0f-dfae-4f64-9cdd-b4c28a7a5612"
+                },
+                {
+                  "label": "Plaatgrenzen",
+                  "layerId": "8fe6de0f-dfae-4f64-9cdd-b4c28a7a5611"
+                },
+                {
+                  "label": "Platen",
+                  "layerId": "46dfb472-2cd8-42b1-97a6-5a6f7bd63427"
+                },
+                {
+                  "label": "Oceaanbodem ouderdom",
+                  "layerId": "2335aff7-f86c-47bf-95e6-b2a82ed4d61e"
+                },
+                {
+                  "label": "Vulkanen",
+                  "layerId": "b61869cf-2c33-4fc6-abba-01623d1fb939"
+                },
+                {
+                  "label": "Hotspots",
+                  "layerId": "b0e4238c-8743-4750-8dd8-ebec109fb2be"
+                },
+                {
+                  "label": "Troggen-Bekkens",
+                  "layerId": "d3d300b3-2d90-44aa-9844-9c87cadd8916"
+                }
+              ]
+            },
+            {
+              "label": "Economie",
+              "children": [
+                {
+                  "label": "Economisch Exclusieve Zones - EEZ",
+                  "layerId": "b2e21dcb-e7a8-4d0c-8999-3b04e81111111"
+                },
+                {
+                  "label": "Associatie van Caribische Staten - ACS",
+                  "layerId": "b2e21dcb-e7a8-4d0c-8999-3b04e81122221"
+                },
+                {
+                  "label": "Caribbean Community - CariCom",
+                  "layerId": "b2e21dcb-e7a8-4d0c-8999-3b04e811444421"
+                },
+                {
+                  "label": "Bruto Binnenlands Product per inwoner",
+                  "layerId": "countrygdpcap"
+                }
+              ]
+            },
+            {
+              "label": "Demografie",
+              "children": [
+                {
+                  "label": "Bevolkingsdichtheid | Regio",
+                  "layerId": "populationdensity"
+                }
+              ]
+            },
+            {
+              "label": "Natuur en Milieu",
+              "children": [
+                {
+                  "label": "Oceaanstroming",
+                  "layerId": "cd1ae11e-6625-439a-a6ee-decccd44634e"
+                },
+                {
+                  "label": "Mondiale luchtstroming",
+                  "layerId": "624eeac3-d7cf-4d0f-86c0-5527fb062aeb"
+                },
+                {
+                  "label": "Oceanen en Zeeen",
+                  "layerId": "624eeac3-d7cf-4444-86c0-5527fb062aeb"
+                },
+                {
+                  "label": "Klimaat",
+                  "layerId": "koppen-klimaat-kaart"
+                }
+              ]
+            },
+            {
+              "label": "Historische kaarten",
+              "children": [
+                {
+                  "label": "1650 \"Pascaert van de Carybes\"",
+                  "layerId": "568124712847-984618471"
+                },
+                {
+                  "label": "1654 \"Pascaerte van West Indien\"",
+                  "layerId": "15388750-65239347"
+                }
+              ]
+            },
+            {
+              "label": "Topografische lagen",
+              "children": [
+                {
+                  "label": "Administratieve grenzen",
+                  "layerId": "administratieve-grenzen"
+                },
+                {
+                  "label": "Gebouwen",
+                  "layerId": "gebouwen"
+                },
+                {
+                  "label": "Plaatsen",
+                  "layerId": "plaatsen"
+                },
+                {
+                  "label": "Plaatsnamen",
+                  "layerId": "plaatsnamen"
+                },
+                {
+                  "label": "Snelwegen",
+                  "layerId": "snelwegen"
+                },
+                {
+                  "label": "Snelwegnamen",
+                  "layerId": "snelwegnamen"
+                },
+                {
+                  "label": "Spoorwegen",
+                  "layerId": "spoorwegen"
+                },
+                {
+                  "label": "Water en waterwegen",
+                  "layerId": "water-en-waterwegen"
+                },
+                {
+                  "label": "Waternamen",
+                  "layerId": "waternamen"
+                },
+                {
+                  "label": "Wegen",
+                  "layerId": "wegen"
+                },
+                {
+                  "label": "Wegnamen",
+                  "layerId": "wegnamen"
+                }
+              ]
+            },
+            {
+              "label": "Achtergrond",
+              "children": [
+                {
+                  "label": "ESRI | Satelliet",
+                  "layerId": "esriworldimagery",
+                  "checked": true,
+                  "selectionGroup": "basemap"
+                }
+              ],
+              "selectionMode": "single",
+              "selectionGroup": "basemap",
+              "allowNone": false
+            }
+          ]
+        },
+        {
+          "id": "measure",
+          "type": "measure",
+          "enabled": true,
+          "title": "Measure"
+        },
+        {
+          "id": "info",
+          "type": "info",
+          "enabled": true,
+          "title": "Feature info"
+        },
+        {
+          "id": "3d",
+          "type": "3d",
+          "enabled": true,
+          "title": "3D"
+        },
+        {
+          "id": "view-mode",
+          "type": "view-mode",
+          "enabled": true,
+          "title": "View mode"
+        },
+        {
+          "id": "draw",
+          "type": "draw",
+          "enabled": true,
+          "title": "Draw"
+        },
+        {
+          "id": "import-layer",
+          "type": "import-layer",
+          "enabled": true,
+          "title": "Import layer"
+        }
+      ]
+    },
+    "attribution": {
+      "type": "attributionControl",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    },
+    "coordinates": {
+      "type": "coordinates",
+      "enabled": true,
+      "position": "bottom-center"
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "bottom-right",
+      "direction": "vertical",
+      "orientation": "vertical"
+    },
+    "scale": {
+      "type": "scaleControl",
+      "enabled": true,
+      "position": "bottom-right",
+      "maxWidth": 140,
+      "margin": "0 0 5px 0"
+    },
+    "zoomLevel": {
+      "type": "zoomLevel",
+      "enabled": true,
+      "position": "bottom-left"
+    },
+    "spinner": {
+      "type": "spinner",
+      "enabled": true,
+      "position": "middle-center"
+    },
+    "legendToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-right",
+      "orientation": "vertical",
+      "tooltipPlacement": "left",
+      "panel": {
+        "enabled": true,
+        "position": "after",
+        "opened": false
+      },
+      "items": [
+        {
+          "id": "legend",
+          "type": "layerOverview",
+          "enabled": true,
+          "title": "Legend"
+        }
+      ]
+    }
+  }
+}

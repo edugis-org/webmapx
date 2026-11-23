@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Building a config — WebMapX</title>
+<meta name="description" content="The setup page builds a WebMapX config — tools, layers, starting view, stories and plugins — without writing JSON by hand.">
+<link rel="canonical" href="https://webmapx.com/tools/setup.html">
+
+<link rel="icon" href="../favicon.png" type="image/png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f8f8;color:#1a1a1a;line-height:1.6}
+a{color:#1b6ec2}
+header{background:#0f1923;color:#fff;padding:2rem 1.5rem}
+header .inner,main{max-width:52rem;margin:0 auto}
+header .crumb{font-size:.85rem;color:#8fa6bd}
+header .crumb a{color:#8fa6bd}
+header h1{font-size:2rem;letter-spacing:-.02em;margin:.4rem 0;display:flex;align-items:center;gap:.55rem}
+.tool-icon{display:inline-flex;align-items:center;flex:none}
+.tool-link{display:inline-flex;align-items:center;gap:.45rem}
+header p{color:#aac;max-width:42rem}
+.badges{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.75rem;border:1px solid #2e4358;color:#cfe0f0;border-radius:99px;padding:.15rem .6rem}
+.mapwrap{max-width:52rem;margin:1.5rem auto;height:26rem;border:1px solid #d8d8d8;border-radius:8px;overflow:hidden;background:#e9e9e9}
+.mapwrap iframe{width:100%;height:100%;border:0;display:block}
+.mapwrap .fallback{padding:2rem;font-size:.9rem;color:#555}
+main{padding:0 1.5rem 4rem}
+section{margin-top:2.5rem}
+/* The tools that exist but have no page yet, listed quietly under their own
+   group rather than in one lump at the bottom: a reader looking for a control
+   should find out there is one, in the place they were already looking. */
+.pending{margin-top:.8rem;font-size:.85rem;color:#666}
+/* One worked example, two pictures and a table. The colours are the tool's own:
+   the first layer neutral, the second layer the accent, the result filled. */
+.io{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-top:1rem}
+.io .arrow{font-size:1.6rem;color:#888;flex:0 0 auto}
+.map-figure{margin:0;flex:0 0 auto}
+.map-figure svg{background:#eef3f7;border:1px solid #d8d8d8;border-radius:4px;display:block}
+.map-figure figcaption{font-size:.75rem;color:#666;margin-top:.25rem}
+svg .a{fill:#c9d6e0;stroke:#7d8f9d;stroke-width:.5}
+svg .ghost{fill:#eceff2;stroke:#dfe4e8;stroke-width:.5}
+svg .b{fill:rgba(217,99,60,.18);stroke:#d9633c;stroke-width:1.2}
+svg .out{fill:rgba(43,108,143,.55);stroke:#1b4a63;stroke-width:.8}
+svg .pt{fill:#1b4a63;stroke:#fff;stroke-width:1}
+table.attrs{font-size:.8rem;margin-top:.6rem;width:auto;border-collapse:collapse}
+table.attrs th,table.attrs td{border:1px solid #ddd;padding:.2rem .5rem;text-align:left}
+table.attrs th{background:#f0f2f4}
+table.attrs td.null{color:#aaa;font-style:italic}
+p.fields{font-size:.85rem;color:#555;margin-top:.8rem}
+.scroll{overflow-x:auto}
+table.matrix{font-size:.8rem;border-collapse:collapse;margin-top:.6rem;width:auto}
+table.matrix th,table.matrix td{border:1px solid #ddd;padding:.25rem .5rem;text-align:center}
+table.matrix th.op{text-align:left;white-space:nowrap;font-weight:600}
+table.matrix th.sub{font-weight:400;color:#666;font-size:.75rem}
+table.matrix thead th{background:#f0f2f4}
+.yes{color:#2f7d4f;font-weight:700}
+.none{color:#999}
+.err{color:#b03030;font-weight:700}
+p.legend{font-size:.85rem;color:#555;margin-top:.6rem}
+.no-geom{width:300px;height:180px;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:#f4f6f8;border:1px dashed #cfd6dc;border-radius:4px;color:#7a848c;font-size:.85rem}
+p.pagenav{font-size:.9rem;margin-top:1.2rem;padding-bottom:.6rem;border-bottom:1px solid #e2e2e2}
+.pending code{background:#ececec;padding:.1em .35em;border-radius:3px}
+h2{font-size:1.3rem;letter-spacing:-.01em;margin-bottom:.6rem}
+p+p,p+ul,p+ol,ul+p,ol+p,pre+p{margin-top:.8rem}
+li{margin-left:1.2rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:#ececec;padding:.1em .35em;border-radius:3px}
+pre{background:#0f1923;color:#dfe8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin-top:.8rem}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin-top:.8rem;font-size:.9rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;vertical-align:top}
+footer{border-top:1px solid #ddd;margin-top:3rem;padding-top:1rem;font-size:.85rem;color:#666}
+@media (prefers-color-scheme:dark){
+ body{background:#12181e;color:#e6ebf0}a{color:#6db8ff}
+ .mapwrap{border-color:#25313d;background:#1a222a}
+ code{background:#222c36}th,td{border-color:#25313d}footer{border-color:#25313d;color:#9aa8b5}
+}
+</style>
+</head>
+<body>
+<header><div class="inner">
+<div class="crumb"><a href="../index.html">WebMapX</a> / <a href="./index.html">Tools</a></div>
+<h1>Building a config</h1>
+<p>The setup page builds a WebMapX config — tools, layers, starting view, stories and plugins — without writing JSON by hand.</p>
+<div class="badges"><a class="badge" href="../testpages/setup.html">Open it →</a></div>
+</div></header>
+<main><p class="pagenav"><a href="#what-the-setup-page-is">What the setup page is</a> · <a href="#starting-from-a-config">Starting from a config</a> · <a href="#tools">Tools</a> · <a href="#plugins">Plugins</a> · <a href="#layers">Layers</a> · <a href="#map">Map</a> · <a href="#stories">Stories</a> · <a href="#trying-and-keeping-the-result">Trying and keeping the result</a></p>
+<section id="what-the-setup-page-is"><h2>What the setup page is</h2><p>A WebMapX map is one JSON config file: which tools it offers, which layers it can show, where it starts, and which guided tours it has. The <a href="../testpages/setup.html">setup page</a> edits such a file with forms and checkboxes, shows the result on a real map as you go, and hands you the file to download or publish.</p>
+<p>It does not replace the config. Everything it produces is ordinary JSON you can open, read and edit further; the <a href="./index.html">tool pages</a> show the config fragment for each tool.</p></section>
+<section id="starting-from-a-config"><h2>Starting from a config</h2><p>The page opens with the demo config. To work on another one:</p>
+<ul><li><strong>Upload config</strong> picks a JSON file from your computer, or drop the file anywhere on the page.</li><li><strong>Open path</strong> takes a URL or a path, which also works for a config on a web server: paste its address.</li><li>Add <code>?config=</code> with a URL to the page's own address to start from that config directly.</li></ul>
+<p><strong>Reset to defaults</strong> throws away the changes made in this session and goes back to the config as it was loaded.</p></section>
+<section id="tools"><h2>Tools</h2><p>The <strong>Tools</strong> tab lists every tool, per toolbar. Tick a tool to put it on that toolbar, untick it to take it off, and drag the handle to change the order. Tools that are in the config are shown normally; the rest in grey italics.</p>
+<p>Hover a tool and click <strong>⚙</strong> to change its options. Simple values get a field; lists and objects are edited as JSON. <strong>OK</strong> keeps the change, <strong>Reset</strong> goes back to what the config had. A <strong>Toolbox</strong> or <strong>Menu</strong> gets its own list of the tools inside it.</p>
+<p>Standalone map controls — scale bar, coordinates, zoom level, inset map and the like — are listed separately, with a position on the map as one of their options.</p></section>
+<section id="plugins"><h2>Plugins</h2><p>A plugin adds a tool that WebMapX does not ship with. The <strong>Plugins</strong> section at the top of the Tools tab lists the plugins the config names and loads them; their tools then appear in the tool lists like any other.</p>
+<ol><li>Type the plugin's path, relative to the config file — for the example that comes with WebMapX: <code>../plugins/bookmarks.js</code> — and press <strong>Add plugin</strong>.</li><li>Tick the new tool (for the example: <strong>Bookmarks</strong>) on a toolbar.</li><li>Click <strong>⚙</strong> on it to edit its settings. A plugin brings its own default settings; the bookmarks plugin starts with three views — World, Amsterdam and the Eiffel Tower — which you can change, extend or empty.</li></ol>
+<p><strong>Remove</strong> takes a plugin out of the config; its tools stay in the lists until the page is reloaded. A plugin is code that runs in the map, so only add plugins you trust. Plugins may come from the same site as the map or from a public package CDN (jsDelivr, unpkg, esm.sh); anything else is refused.</p></section>
+<section id="layers"><h2>Layers</h2><p>The <strong>Layers</strong> tab has three lists. <strong>Available layers</strong> are the layers the config knows but does not show in its layer tree; <strong>+ Add layer…</strong> finds more, from the shared layer repository or from a WMS, WMTS, Esri or XYZ service URL. <strong>Layer tree</strong> is the structure the catalog tool shows, and <strong>Active layers</strong> are the layers switched on when the map opens — top of the list is top of the map.</p></section>
+<section id="map"><h2>Map</h2><p>The <strong>Map</strong> tab sets where the map starts: engine, centre, zoom, bearing, pitch and projection. The map beside the form is live: move it where you want, then <strong>Update form with map settings</strong> copies the view into the form. <strong>View limits</strong> and <strong>Max extent</strong> keep users within a zoom range or an area.</p></section>
+<section id="stories"><h2>Stories</h2><p>The <strong>Stories</strong> tab writes guided tours: a story has chapters, a chapter has steps, and each step has text and a map state — view, visible layers, projection. Position the map beside the form and use <strong>Capture current view from map</strong> to fill in a step's camera, or <strong>Preview step on map</strong> to check it.</p></section>
+<section id="trying-and-keeping-the-result"><h2>Trying and keeping the result</h2><ul><li><strong>Update preview</strong> opens the config in a full map, in a separate tab — keep it next to the setup page and press the button again after each change.</li><li><strong>Download config</strong> saves the JSON file.</li><li><strong>Publish to GitHub…</strong> commits it straight into a repository you can write to, using a personal access token that stays in your browser.</li></ul>
+<p>To use the downloaded file, serve it with your map and open the map with <code>?config=</code> pointing at it, or drop the file onto a WebMapX map.</p></section>
+</main>
+</body>
+</html>

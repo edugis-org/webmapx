@@ -1,0 +1,75 @@
+[
+  {
+    "slug": "feat-gpkg-fast-open",
+    "branch": "feat/gpkg-fast-open",
+    "sha": "1e31956af0b6b17610e88c7acf7f1942229fba6b",
+    "deployed": "2026-11-23T00:21:46.369Z",
+    "bytes": 90268360,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "feat-portolan-setup",
+    "branch": "feat/portolan-setup",
+    "sha": "a498f69c9a54a9793cc2d8c8ea0ab6d9824d1d35",
+    "deployed": "2026-11-23T00:09:59.214Z",
+    "bytes": 90265298,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "feat-setup-from-file",
+    "branch": "feat/setup-from-file",
+    "sha": "9990cc45b41f3cadded1216292165ff08683858c",
+    "deployed": "2026-11-18T16:02:09.567Z",
+    "bytes": 75379383,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "feat-setup-open-menu",
+    "branch": "feat/setup-open-menu",
+    "sha": "618959a79e07c7a55237e6783bf983e24f6e180e",
+    "deployed": "2026-11-22T17:09:43.865Z",
+    "bytes": 83174314,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "main",
+    "branch": "main",
+    "sha": "1a3359c74bc25c2f3bdcaf5ba768a4acd2424dff",
+    "deployed": "2026-11-23T00:08:49.632Z",
+    "bytes": 90262232,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "worktree-sam-tool",
+    "branch": "worktree-sam-tool",
+    "sha": "cfd8ad6f1582c9aa5a0fa80c4c05ddb071c96dbf",
+    "deployed": "2026-10-09T14:09:26.458Z",
+    "bytes": 70498352,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835,
+      "39f9f0894d478800487e.wasm": 26781914
+    }
+  }
+]

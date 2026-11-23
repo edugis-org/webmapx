@@ -1,0 +1,6379 @@
+{
+  "version": 0,
+  "project": {
+    "id": "demo_mlgl_terrain",
+    "title": "demo-mlgl-terrain",
+    "description": "Converted from an EduGIS map configuration."
+  },
+  "map": {
+    "center": [
+      -62.972516579340976,
+      17.480571492043552
+    ],
+    "zoom": 14.03,
+    "minZoom": 0,
+    "maxZoom": 22,
+    "type": "maplibre",
+    "label": "world",
+    "style": {
+      "version": 8,
+      "sources": {},
+      "layers": []
+    },
+    "bearing": 100.8,
+    "pitch": 79.5,
+    "maxPitch": 80
+  },
+  "runtimeMap": {
+    "maxPitch": 80
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "esriworldimagery-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        ],
+        "tileSize": 256,
+        "maxzoom": 22,
+        "attribution": "ESRI World Imagery"
+      },
+      {
+        "id": "satellite-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.webp?access_token={key-mapbox}"
+        ],
+        "tileSize": 256,
+        "attribution": "Mapbox World Imagery"
+      },
+      {
+        "id": "bingmapaerial-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://ecn.t0.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=12327",
+          "https://ecn.t1.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=12327",
+          "https://ecn.t2.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=12327",
+          "https://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=12327"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "attribution": "© 2024 Microsoft Corporation|© 2024 Maxar|©CNES (2024) Distribution Airbus DS|© 2024 TMAP MOBILITY|Earthstar Geographics  SIO"
+      },
+      {
+        "id": "openstreetmap-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/about\" target=\"copyright\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "openstreetmapgray-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osmgrayscale_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/about\" target=\"copyright\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "bingmaproad-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://ecn.t0.tiles.virtualearth.net/tiles/r{quadkey}.jpeg?g=12327&mkt=nl-BE&shading=hill",
+          "https://ecn.t1.tiles.virtualearth.net/tiles/r{quadkey}.jpeg?g=12327&mkt=nl-BE&shading=hill",
+          "https://ecn.t2.tiles.virtualearth.net/tiles/r{quadkey}.jpeg?g=12327&mkt=nl-BE&shading=hill",
+          "https://ecn.t3.tiles.virtualearth.net/tiles/r{quadkey}.jpeg?g=12327&mkt=nl-BE&shading=hill"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "© 2022 Microsoft Corporation|© 2022 TomTom|© 2022 Zenrin"
+      },
+      {
+        "id": "bingmaphybrid-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://ecn.t0.tiles.virtualearth.net/tiles/h{quadkey}.jpeg?g=12327&mkt=nl-BE",
+          "https://ecn.t1.tiles.virtualearth.net/tiles/h{quadkey}.jpeg?g=12327&mkt=nl-BE",
+          "https://ecn.t2.tiles.virtualearth.net/tiles/h{quadkey}.jpeg?g=12327&mkt=nl-BE",
+          "https://ecn.t3.tiles.virtualearth.net/tiles/h{quadkey}.jpeg?g=12327&mkt=nl-BE"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "attribution": "© 2023 Microsoft Corporation|© 2023 Maxar|©CNES (2023) Distribution Airbus DS|© 2023 TMAP MOBILITY|Earthstar Geographics  SIO|© 2023 TomTom|© 2023 Zenrin"
+      },
+      {
+        "id": "worldlandcover-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/landcover/wmts/landcover/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "attribution": "&copy; <a href=\"https://github.com/globalmaps/gm_lc_v3\" target=\"copyright\">GLCNMO Version 3</a>"
+      },
+      {
+        "id": "openweathermaptemperature-new-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tile.openweathermap.org/map/temp/{z}/{x}/{y}.png?appid={key-openweathermap}"
+        ],
+        "tileSize": 256,
+        "attribution": "<a href=\"https://openweathermap.org\" target=\"_blank\">OpenWeatherMap</a>"
+      },
+      {
+        "id": "openweathermapprecipitation-new-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tile.openweathermap.org/map/precipitation/{z}/{x}/{y}.png?appid={key-openweathermap}&opacity=1"
+        ],
+        "tileSize": 256,
+        "attribution": "<a href=\"https://openweathermap.org\" target=\"_blank\">OpenWeatherMap</a>"
+      },
+      {
+        "id": "openweathermapcloudes-new-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tile.openweathermap.org/map/clouds_cls/{z}/{x}/{y}.png?appid={key-openweathermap}&opacity=1"
+        ],
+        "tileSize": 256,
+        "attribution": "<a href=\"https://openweathermap.org\" target=\"_blank\">OpenWeatherMap</a>"
+      },
+      {
+        "id": "openweathermappressure-new-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tile.openweathermap.org/map/pressure_new/{z}/{x}/{y}.png?appid={key-openweathermap}&opacity=1"
+        ],
+        "tileSize": 256,
+        "attribution": "<a href=\"https://openweathermap.org\" target=\"_blank\">OpenWeatherMap</a>"
+      },
+      {
+        "id": "openweathermapwind-new-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid={key-openweathermap}&opacity=1"
+        ],
+        "tileSize": 256,
+        "attribution": "<a href=\"https://openweathermap.org\" target=\"_blank\">OpenWeatherMap</a>"
+      },
+      {
+        "id": "bevolking2015-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://t1.edugis.nl/tiles/tilecache.py?map=maps/edugis/cache/population.map&LAYERS=Bevolkingsdichtheid_2015&TRANSPARENT=true&FORMAT=image%2Fpng&SERVICE=WMS&VERSION=1.1.1&STYLES=&SRS=EPSG%3A900913&WIDTH=256&HEIGHT=256&request=GetMap&service=WMS&bbox={bbox-epsg-3857}",
+          "https://t2.edugis.nl/tiles/tilecache.py?map=maps/edugis/cache/population.map&LAYERS=Bevolkingsdichtheid_2015&TRANSPARENT=true&FORMAT=image%2Fpng&SERVICE=WMS&VERSION=1.1.1&STYLES=&SRS=EPSG%3A900913&WIDTH=256&HEIGHT=256&request=GetMap&service=WMS&bbox={bbox-epsg-3857}",
+          "https://t3.edugis.nl/tiles/tilecache.py?map=maps/edugis/cache/population.map&LAYERS=Bevolkingsdichtheid_2015&TRANSPARENT=true&FORMAT=image%2Fpng&SERVICE=WMS&VERSION=1.1.1&STYLES=&SRS=EPSG%3A900913&WIDTH=256&HEIGHT=256&request=GetMap&service=WMS&bbox={bbox-epsg-3857}",
+          "https://t4.edugis.nl/tiles/tilecache.py?map=maps/edugis/cache/population.map&LAYERS=Bevolkingsdichtheid_2015&TRANSPARENT=true&FORMAT=image%2Fpng&SERVICE=WMS&VERSION=1.1.1&STYLES=&SRS=EPSG%3A900913&WIDTH=256&HEIGHT=256&request=GetMap&service=WMS&bbox={bbox-epsg-3857}"
+        ],
+        "tileSize": 256,
+        "attribution": "to do"
+      },
+      {
+        "id": "geographiclines:geographiclines",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_geographic_lines/mvt/{z}/{x}/{y}?geom_column=geom&columns=name_nl&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89.5,
+          180,
+          66.5499852412027
+        ],
+        "attribution": "Natural Earth"
+      },
+      {
+        "id": "d48b75ca-0b0f-4531-91df-718316a866c6:source",
+        "type": "geojson",
+        "data": {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    0,
+                    0
+                  ],
+                  [
+                    360,
+                    0
+                  ]
+                ]
+              },
+              "id": "36f4c98b-9db5-46a3-9619-f316a56dddff"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    0,
+                    30
+                  ],
+                  [
+                    360,
+                    30
+                  ]
+                ]
+              },
+              "id": "4bc63145-239e-4113-a164-ce461432dac8"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    0,
+                    60
+                  ],
+                  [
+                    360,
+                    60
+                  ]
+                ]
+              },
+              "id": "88bd09bc-f9aa-45c6-895e-e36ac28ca9e9"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    180,
+                    0
+                  ],
+                  [
+                    360,
+                    0
+                  ]
+                ]
+              },
+              "id": "3147baad-9ef9-4886-b72d-bf112a15a37d"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    0,
+                    -30
+                  ],
+                  [
+                    360,
+                    -30
+                  ]
+                ]
+              },
+              "id": "9affe941-2b8f-45ae-a3c0-cf8515bccc81"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    0,
+                    -60
+                  ],
+                  [
+                    360,
+                    -60
+                  ]
+                ]
+              },
+              "id": "0ff2c426-2e33-4d4d-8970-66fa21d3849c"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    0,
+                    -30
+                  ],
+                  [
+                    360,
+                    -30
+                  ]
+                ]
+              },
+              "id": "f3d29133-f7cc-4b8e-9d12-f1c777463d3e"
+            }
+          ]
+        },
+        "attribution": "unknown"
+      },
+      {
+        "id": "19524964-dae4-40e9-b97c-254291b0760f:source",
+        "type": "geojson",
+        "data": {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    0,
+                    -90
+                  ],
+                  [
+                    0,
+                    90
+                  ]
+                ]
+              },
+              "id": "36f4c98b-9db5-46a3-9619-f316a56dddff"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    30,
+                    -90
+                  ],
+                  [
+                    30,
+                    90
+                  ]
+                ]
+              },
+              "id": "4bc63145-239e-4113-a164-ce461432dac8"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    60,
+                    -90
+                  ],
+                  [
+                    60,
+                    90
+                  ]
+                ]
+              },
+              "id": "88bd09bc-f9aa-45c6-895e-e36ac28ca9e9"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    90,
+                    -90
+                  ],
+                  [
+                    90,
+                    90
+                  ]
+                ]
+              },
+              "id": "ddd553d6-93e3-4422-bfff-93862577a9df"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    120,
+                    -90
+                  ],
+                  [
+                    120,
+                    90
+                  ]
+                ]
+              },
+              "id": "3147baad-9ef9-4886-b72d-bf112a15a37d"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    150,
+                    -90
+                  ],
+                  [
+                    150,
+                    90
+                  ]
+                ]
+              },
+              "id": "9affe941-2b8f-45ae-a3c0-cf8515bccc81"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    180,
+                    -90
+                  ],
+                  [
+                    180,
+                    90
+                  ]
+                ]
+              },
+              "id": "0ff2c426-2e33-4d4d-8970-66fa21d3849c"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    210,
+                    -90
+                  ],
+                  [
+                    210,
+                    90
+                  ]
+                ]
+              },
+              "id": "f3d29133-f7cc-4b8e-9d12-f1c777463d3e"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    240,
+                    -90
+                  ],
+                  [
+                    240,
+                    90
+                  ]
+                ]
+              },
+              "id": "f715dd96-8bfc-440a-ac51-51c4295f163c"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    270,
+                    -90
+                  ],
+                  [
+                    270,
+                    90
+                  ]
+                ]
+              },
+              "id": "19507da4-bec2-4893-a84b-8db4629d58e4"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    300,
+                    -90
+                  ],
+                  [
+                    300,
+                    90
+                  ]
+                ]
+              },
+              "id": "b9b084a4-b75f-40dc-9bdd-5b2afac287e4"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    330,
+                    -90
+                  ],
+                  [
+                    330,
+                    90
+                  ]
+                ]
+              },
+              "id": "24f5fad7-ccbd-49fc-8102-7dca172bfa8a"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    -30,
+                    90
+                  ],
+                  [
+                    -30,
+                    -90
+                  ]
+                ]
+              },
+              "id": "2b32344b-6eab-49df-a50d-360eaf78cc9d"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    -60,
+                    90
+                  ],
+                  [
+                    -60,
+                    -90
+                  ]
+                ]
+              },
+              "id": "e6b31285-8fb3-4530-a449-e85d951e8e60"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    -90,
+                    90
+                  ],
+                  [
+                    -90,
+                    -90
+                  ]
+                ]
+              },
+              "id": "c9fe43e5-d1d6-4edd-8558-af65656a2a26"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    -120,
+                    90
+                  ],
+                  [
+                    -120,
+                    -90
+                  ]
+                ]
+              },
+              "id": "df03a8b0-91cc-4369-8abe-6249bff3fa24"
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "shape": "Line",
+                "name": "Unnamed Layer",
+                "category": "default"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    -150,
+                    90
+                  ],
+                  [
+                    -150,
+                    -90
+                  ]
+                ]
+              },
+              "id": "2ea35a75-036e-4f41-b971-f83828c0393f"
+            }
+          ]
+        },
+        "attribution": "unknown"
+      },
+      {
+        "id": "timezones:timezones",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_time_zones/mvt/{z}/{x}/{y}?geom_column=geom&columns=tz_name1st,zone&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89.5,
+          180,
+          89.5
+        ],
+        "attribution": "Natural Earth"
+      },
+      {
+        "id": "mapzenhillshading:source",
+        "type": "raster-dem",
+        "tiles": [
+          "https://t1.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 15,
+        "encoding": "terrarium",
+        "attribution": "NextZen"
+      },
+      {
+        "id": "dda1f252-38cf-4842-a60f-472fbb44b8e9:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/stroomgebieden.json"
+      },
+      {
+        "id": "lakesandrivers:rivers",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_rivers_lake_centerlines/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,name_nl&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89.5,
+          180,
+          66.5499852412027
+        ],
+        "attribution": "Natural Earth"
+      },
+      {
+        "id": "lakesandrivers:lakes",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_lakes/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,name_nl&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89.5,
+          180,
+          66.5499852412027
+        ],
+        "attribution": "Natural Earth"
+      },
+      {
+        "id": "cd35f895-2af4-1111-b996-aa6d820b0a89:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/koppen2017.geo.json",
+        "attribution": "EduGIS"
+      },
+      {
+        "id": "koppen-klimaat-kaart:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.climate_2007_koppen_geiger/mvt/{z}/{x}/{y}?geom_column=geom&columns=klassificatie,klimaat,neerslagverdeling,temperatuurverschil&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89.5,
+          180,
+          83.6
+        ]
+      },
+      {
+        "id": "624eeac3-d7cf-4d0f-86c0-5527fb062aeb:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/mondiale_luchtstroming.geo.json"
+      },
+      {
+        "id": "cd1ae11e-6625-439a-a6ee-decccd44634e:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/oceaanstromingen.geo.json"
+      },
+      {
+        "id": "cd1ae11e-7725-439a-a6ee-decccd44634e:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/thermohalienecirculatie.geo.json"
+      },
+      {
+        "id": "cd1ae11e-2425-439a-a6ee-decccd44634e:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/afzinkendwater.geo.json"
+      },
+      {
+        "id": "cd1ae11e-8725-439a-a6ee-decccd44634e:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/opwellendwater.geo.json"
+      },
+      {
+        "id": "neerslag-jaarlijks-gemiddeld:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.wc_1_2_5m_bio_12_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=annualprecipitation,mean,min,max&include_nulls=0",
+          "https://t1.edugis.nl/data/public.wc_1_2_5m_bio_12_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=annualprecipitation,mean,min,max&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89.9583333333333,
+          180,
+          83.6666666666667
+        ],
+        "attribution": "<a href=\"https://www.worldclim.org/data/worldclim21.html\" target=\"blank\">WorldClim.org</a>"
+      },
+      {
+        "id": "b48d1c09-7dc7-4d1d-b44b-f777400c4472:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.wc2_1_5m_prec_01_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=averageprecjan,mean,min,max&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89.5,
+          180,
+          83.6666666666667
+        ],
+        "attribution": "<a href=\"https://www.worldclim.org/data/worldclim21.html\" target=\"blank\">WorldClim.org</a>"
+      },
+      {
+        "id": "448d1c09-8000-4d1d-b44b-f777400c4476:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.wc2_1_5m_prec_07_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=averageprecjul,mean,min,max&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89.5,
+          180,
+          83.6666666666667
+        ],
+        "attribution": "<a href=\"https://www.worldclim.org/data/worldclim21.html\" target=\"blank\">WorldClim.org</a>"
+      },
+      {
+        "id": "c9473b4b-e1b4-4f15-918a-a7f1cedf03dc:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.wc2_1_5m_tavg_01_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=averagetempjan,mean,min,max&include_nulls=0",
+          "https://t1.edugis.nl/data/public.wc2_1_5m_tavg_01_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=averagetempjan,mean,min,max&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89.9583333333333,
+          180,
+          83.6666666666667
+        ],
+        "attribution": "<a href=\"https://www.worldclim.org/data/worldclim21.html\" target=\"blank\">WorldClim.org</a>"
+      },
+      {
+        "id": "9b687f17-c174-4436-a706-3b4ead044845:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.wc2_1_5m_tavg_07_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=averagetempjul,mean,min,max&include_nulls=0",
+          "https://t1.edugis.nl/data/public.wc2_1_5m_tavg_07_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=averagetempjul,mean,min,max&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89.9583333333333,
+          180,
+          83.6666666666667
+        ],
+        "attribution": "<a href=\"https://www.worldclim.org/data/worldclim21.html\" target=\"blank\">WorldClim.org</a>"
+      },
+      {
+        "id": "countryborders:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geom&columns=name_nl&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ]
+      },
+      {
+        "id": "districtborders:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces/mvt/{z}/{x}/{y}?geom_column=geom&columns=name&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ]
+      },
+      {
+        "id": "countrypopest:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geompoint&columns=name,pop_est&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ]
+      },
+      {
+        "id": "countrypopdensity:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.world_population_moredetailed/mvt/{z}/{x}/{y}?geom_column=geom&columns=country,population,population_density,area&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ],
+        "attribution": "World Bank"
+      },
+      {
+        "id": "populationdensity:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces_lakes_pop/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,pop_sum,pop_dens,admin,type,type_en&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ],
+        "attribution": "<a href=\"https://www.worldpop.org/\">WorldPop</a>"
+      },
+      {
+        "id": "population3d:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces_lakes_pop/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,pop_sum,pop_dens,admin,type,type_en&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ],
+        "attribution": "<a href=\"https://www.worldpop.org/\">WorldPop</a>"
+      },
+      {
+        "id": "populationsum:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces_lakes_pop/mvt/{z}/{x}/{y}?geom_column=geompoint&columns=name,pop_sum,pop_dens,admin,type,type_en&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ],
+        "attribution": "<a href=\"https://www.worldpop.org/\">WorldPop</a>"
+      },
+      {
+        "id": "citiesandtowns2:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_populated_places/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,name_nl,timezone,pop_min,pop_max&include_nulls=0"
+        ]
+      },
+      {
+        "id": "countrydevelopments:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,economy&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ]
+      },
+      {
+        "id": "countrygdp:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geompoint&columns=name,gdp_md_est,gdp_p_cap,economy&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ]
+      },
+      {
+        "id": "countrygdpcap:source",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,gdp_md_est,gdp_p_cap,economy&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ]
+      },
+      {
+        "id": "df104f3d-e312-447d-9768-36cf5313b4fb:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Zon.geo.json"
+      },
+      {
+        "id": "801bfd79-71a3-47f4-ac29-2b7843263c7c:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Wind.geo.json"
+      },
+      {
+        "id": "cb36d79a-7f8b-47ff-b0af-03a641fb959d:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Waterkracht.geo.json"
+      },
+      {
+        "id": "4c78e3b6-8408-4e1e-b033-ba412fcfe544:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Warmtekracht_koppeling.geo.json"
+      },
+      {
+        "id": "daa1623d-dac8-4759-8c05-c624249b3c04:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Petcokes.geo.json"
+      },
+      {
+        "id": "51bb4cad-1309-4b31-9af4-ccbd8f5b1d4e:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Overig.geo.json"
+      },
+      {
+        "id": "f9720b91-5709-40bb-9b15-add9187f372b:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Opslag.geo.json"
+      },
+      {
+        "id": "0f507d18-f72c-46df-8a35-91eebac591af:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Olie.geo.json"
+      },
+      {
+        "id": "42ea2a81-9e5e-46b2-b160-976f14953eea:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Kolen.geo.json"
+      },
+      {
+        "id": "504cd4dd-c3c7-4434-ab1e-3eb95959b5e3:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Kern.geo.json"
+      },
+      {
+        "id": "459f1527-b808-4d7a-bc4d-abffcd687ec8:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Huisvuil.geo.json"
+      },
+      {
+        "id": "b1defc0f-456c-45fd-a140-835905c4dbe4:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Golf_Getijde.geo.json"
+      },
+      {
+        "id": "c6a98886-feaa-443c-991f-f35a43888192:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Geothermie.geo.json"
+      },
+      {
+        "id": "93d12b48-7397-4789-9c7a-402ec50bb116:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Gas.geo.json"
+      },
+      {
+        "id": "8a5648b1-2161-49ff-8bbc-383798de7be6:source",
+        "type": "geojson",
+        "data": "https://kaart.edugis.nl/data/world/Biomassa.geo.json"
+      }
+    ],
+    "layers": [
+      {
+        "id": "esriworldimagery",
+        "title": "Wereld (ESRI World Imagery)",
+        "type": "raster",
+        "source": "esriworldimagery-source",
+        "metadata": {
+          "reference": true,
+          "title": "Wereld (ESRI World Imagery)",
+          "userlayer": true,
+          "label": "Wereld (ESRI World Imagery)"
+        }
+      },
+      {
+        "id": "satellite",
+        "title": "Wereld (Mapbox)",
+        "type": "raster",
+        "source": "satellite-source",
+        "metadata": {
+          "title": "Wereld (Mapbox)",
+          "reference": true,
+          "userlayer": true,
+          "label": "Wereld (Mapbox)"
+        }
+      },
+      {
+        "id": "bingmapaerial",
+        "title": "Wereld (Bing)",
+        "type": "raster",
+        "source": "bingmapaerial-source",
+        "metadata": {
+          "reference": true,
+          "bing": true,
+          "title": "Wereld (Bing)",
+          "userlayer": true,
+          "label": "Wereld (Bing)",
+          "getFeatureInfoUrl": "https://ecn.t0.tiles.virtualearth.net/tiles/a%7Bquadkey%7D.jpeg?g=12327&SERVICE=WMS&REQUEST=GetFeatureInfo&VERSION=1.1.1&LAYERS=&QUERY_LAYERS=",
+          "getFeatureInfoFormat": "application/json"
+        }
+      },
+      {
+        "id": "openstreetmap",
+        "title": "Standaard (OSM)",
+        "type": "raster",
+        "source": "openstreetmap-source",
+        "metadata": {
+          "legendurl": "https://mapserver.edugis.nl/legends/wereld/osm_logo.png",
+          "title": "Standaard (OSM)",
+          "reference": true,
+          "label": "Standaard (OSM)"
+        }
+      },
+      {
+        "id": "openstreetmapgray",
+        "title": "Grijs (OSM)",
+        "type": "raster",
+        "source": "openstreetmapgray-source",
+        "metadata": {
+          "legendurl": "https://mapserver.edugis.nl/legends/wereld/osm_logo.png",
+          "title": "Grijs (OSM)",
+          "reference": true,
+          "label": "Grijs (OSM)"
+        }
+      },
+      {
+        "id": "osmbright",
+        "title": "Helder (OSM)",
+        "type": "style",
+        "url": "styles/openmaptiles/osmbright.json",
+        "metadata": {
+          "reference": true,
+          "title": "Helder (OSM)",
+          "styleid": "OsmBright",
+          "styletitle": "OpenStreetMap | Helder",
+          "label": "Helder (OSM)"
+        },
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "bingmaproad",
+        "title": "Standaard (Bing)",
+        "type": "raster",
+        "source": "bingmaproad-source",
+        "metadata": {
+          "reference": true,
+          "bing": true,
+          "title": "Standaard (Bing)",
+          "userlayer": true,
+          "label": "Standaard (Bing)",
+          "getFeatureInfoUrl": "https://ecn.t0.tiles.virtualearth.net/tiles/r%7Bquadkey%7D.jpeg?g=12327&mkt=nl-BE&shading=hill&SERVICE=WMS&REQUEST=GetFeatureInfo&VERSION=1.1.1&LAYERS=&QUERY_LAYERS=",
+          "getFeatureInfoFormat": "application/json"
+        }
+      },
+      {
+        "id": "bingmaphybrid",
+        "title": "Hybride (Bing)",
+        "type": "raster",
+        "source": "bingmaphybrid-source",
+        "metadata": {
+          "reference": true,
+          "bing": true,
+          "title": "Bing | Combinatie",
+          "userlayer": true,
+          "label": "Hybride (Bing)",
+          "getFeatureInfoUrl": "https://ecn.t0.tiles.virtualearth.net/tiles/h%7Bquadkey%7D.jpeg?g=12327&mkt=nl-BE&SERVICE=WMS&REQUEST=GetFeatureInfo&VERSION=1.1.1&LAYERS=&QUERY_LAYERS=",
+          "getFeatureInfoFormat": "application/json"
+        }
+      },
+      {
+        "id": "geographiclines",
+        "title": "Evenaar | Keerkringen | Poolcirkels",
+        "type": "style",
+        "sources": {
+          "geographiclines": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_geographic_lines/mvt/{z}/{x}/{y}?geom_column=geom&columns=name_nl&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89.5,
+              180,
+              66.5499852412027
+            ],
+            "attribution": "Natural Earth"
+          }
+        },
+        "layers": [
+          {
+            "id": "evenaar",
+            "type": "line",
+            "source": "geographiclines:geographiclines",
+            "source-layer": "public.ne_10m_geographic_lines",
+            "paint": {
+              "line-color": "black",
+              "line-width": 4,
+              "line-dasharray": [
+                1
+              ]
+            },
+            "filter": [
+              "==",
+              [
+                "get",
+                "name_nl"
+              ],
+              "evenaar"
+            ]
+          },
+          {
+            "id": "keerkringen",
+            "type": "line",
+            "source": "geographiclines:geographiclines",
+            "source-layer": "public.ne_10m_geographic_lines",
+            "metadata": {
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name_nl",
+                    "translation": "naam"
+                  }
+                ]
+              }
+            },
+            "paint": {
+              "line-color": "black",
+              "line-width": 1,
+              "line-dasharray": [
+                4,
+                4
+              ]
+            },
+            "filter": [
+              "any",
+              [
+                "==",
+                [
+                  "get",
+                  "name_nl"
+                ],
+                "Kreeftskeerkring"
+              ],
+              [
+                "==",
+                [
+                  "get",
+                  "name_nl"
+                ],
+                "Steenbokskeerkring"
+              ]
+            ]
+          },
+          {
+            "id": "poolcirkels",
+            "type": "line",
+            "metadata": {
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name_nl",
+                    "translation": "naam"
+                  }
+                ]
+              }
+            },
+            "source": "geographiclines:geographiclines",
+            "source-layer": "public.ne_10m_geographic_lines",
+            "paint": {
+              "line-color": "black",
+              "line-width": 1,
+              "line-dasharray": [
+                2,
+                2
+              ]
+            },
+            "filter": [
+              "any",
+              [
+                "==",
+                [
+                  "get",
+                  "name_nl"
+                ],
+                "Noordpoolcirkel"
+              ],
+              [
+                "==",
+                [
+                  "get",
+                  "name_nl"
+                ],
+                "Zuidpoolcirkel"
+              ]
+            ]
+          }
+        ],
+        "metadata": {
+          "title": "Evenaar | Keerkringen | Poolcirkels",
+          "styleid": "geographiclines",
+          "styletitle": "Evenaar | Keerkringen | Poolcirkels",
+          "label": "Evenaar | Keerkringen | Poolcirkels"
+        }
+      },
+      {
+        "id": "d48b75ca-0b0f-4531-91df-718316a866c6",
+        "title": "Breedtegraden",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        0,
+                        0
+                      ],
+                      [
+                        360,
+                        0
+                      ]
+                    ]
+                  },
+                  "id": "36f4c98b-9db5-46a3-9619-f316a56dddff"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        0,
+                        30
+                      ],
+                      [
+                        360,
+                        30
+                      ]
+                    ]
+                  },
+                  "id": "4bc63145-239e-4113-a164-ce461432dac8"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        0,
+                        60
+                      ],
+                      [
+                        360,
+                        60
+                      ]
+                    ]
+                  },
+                  "id": "88bd09bc-f9aa-45c6-895e-e36ac28ca9e9"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        180,
+                        0
+                      ],
+                      [
+                        360,
+                        0
+                      ]
+                    ]
+                  },
+                  "id": "3147baad-9ef9-4886-b72d-bf112a15a37d"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        0,
+                        -30
+                      ],
+                      [
+                        360,
+                        -30
+                      ]
+                    ]
+                  },
+                  "id": "9affe941-2b8f-45ae-a3c0-cf8515bccc81"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        0,
+                        -60
+                      ],
+                      [
+                        360,
+                        -60
+                      ]
+                    ]
+                  },
+                  "id": "0ff2c426-2e33-4d4d-8970-66fa21d3849c"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        0,
+                        -30
+                      ],
+                      [
+                        360,
+                        -30
+                      ]
+                    ]
+                  },
+                  "id": "f3d29133-f7cc-4b8e-9d12-f1c777463d3e"
+                }
+              ]
+            },
+            "attribution": "unknown"
+          }
+        },
+        "layers": [
+          {
+            "id": "d48b75ca-0b0f-4531-91df-718316a866c6-layer",
+            "type": "line",
+            "source": "d48b75ca-0b0f-4531-91df-718316a866c6:source",
+            "paint": {
+              "line-color": "#000",
+              "line-width": 2
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Breedtegraden",
+          "userlayer": true,
+          "visible": true,
+          "label": "Breedtegraden"
+        }
+      },
+      {
+        "id": "19524964-dae4-40e9-b97c-254291b0760f",
+        "title": "Lengtegraden ",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        0,
+                        -90
+                      ],
+                      [
+                        0,
+                        90
+                      ]
+                    ]
+                  },
+                  "id": "36f4c98b-9db5-46a3-9619-f316a56dddff"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        30,
+                        -90
+                      ],
+                      [
+                        30,
+                        90
+                      ]
+                    ]
+                  },
+                  "id": "4bc63145-239e-4113-a164-ce461432dac8"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        60,
+                        -90
+                      ],
+                      [
+                        60,
+                        90
+                      ]
+                    ]
+                  },
+                  "id": "88bd09bc-f9aa-45c6-895e-e36ac28ca9e9"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        90,
+                        -90
+                      ],
+                      [
+                        90,
+                        90
+                      ]
+                    ]
+                  },
+                  "id": "ddd553d6-93e3-4422-bfff-93862577a9df"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        120,
+                        -90
+                      ],
+                      [
+                        120,
+                        90
+                      ]
+                    ]
+                  },
+                  "id": "3147baad-9ef9-4886-b72d-bf112a15a37d"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        150,
+                        -90
+                      ],
+                      [
+                        150,
+                        90
+                      ]
+                    ]
+                  },
+                  "id": "9affe941-2b8f-45ae-a3c0-cf8515bccc81"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        180,
+                        -90
+                      ],
+                      [
+                        180,
+                        90
+                      ]
+                    ]
+                  },
+                  "id": "0ff2c426-2e33-4d4d-8970-66fa21d3849c"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        210,
+                        -90
+                      ],
+                      [
+                        210,
+                        90
+                      ]
+                    ]
+                  },
+                  "id": "f3d29133-f7cc-4b8e-9d12-f1c777463d3e"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        240,
+                        -90
+                      ],
+                      [
+                        240,
+                        90
+                      ]
+                    ]
+                  },
+                  "id": "f715dd96-8bfc-440a-ac51-51c4295f163c"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        270,
+                        -90
+                      ],
+                      [
+                        270,
+                        90
+                      ]
+                    ]
+                  },
+                  "id": "19507da4-bec2-4893-a84b-8db4629d58e4"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        300,
+                        -90
+                      ],
+                      [
+                        300,
+                        90
+                      ]
+                    ]
+                  },
+                  "id": "b9b084a4-b75f-40dc-9bdd-5b2afac287e4"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        330,
+                        -90
+                      ],
+                      [
+                        330,
+                        90
+                      ]
+                    ]
+                  },
+                  "id": "24f5fad7-ccbd-49fc-8102-7dca172bfa8a"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        -30,
+                        90
+                      ],
+                      [
+                        -30,
+                        -90
+                      ]
+                    ]
+                  },
+                  "id": "2b32344b-6eab-49df-a50d-360eaf78cc9d"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        -60,
+                        90
+                      ],
+                      [
+                        -60,
+                        -90
+                      ]
+                    ]
+                  },
+                  "id": "e6b31285-8fb3-4530-a449-e85d951e8e60"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        -90,
+                        90
+                      ],
+                      [
+                        -90,
+                        -90
+                      ]
+                    ]
+                  },
+                  "id": "c9fe43e5-d1d6-4edd-8558-af65656a2a26"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        -120,
+                        90
+                      ],
+                      [
+                        -120,
+                        -90
+                      ]
+                    ]
+                  },
+                  "id": "df03a8b0-91cc-4369-8abe-6249bff3fa24"
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "shape": "Line",
+                    "name": "Unnamed Layer",
+                    "category": "default"
+                  },
+                  "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                      [
+                        -150,
+                        90
+                      ],
+                      [
+                        -150,
+                        -90
+                      ]
+                    ]
+                  },
+                  "id": "2ea35a75-036e-4f41-b971-f83828c0393f"
+                }
+              ]
+            },
+            "attribution": "unknown"
+          }
+        },
+        "layers": [
+          {
+            "id": "19524964-dae4-40e9-b97c-254291b0760f-layer",
+            "type": "line",
+            "source": "19524964-dae4-40e9-b97c-254291b0760f:source",
+            "paint": {
+              "line-color": "#000",
+              "line-width": 2
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Lengtegraden",
+          "userlayer": true,
+          "visible": true,
+          "label": "Lengtegraden "
+        }
+      },
+      {
+        "id": "timezones",
+        "title": "Tijdzones",
+        "type": "style",
+        "sources": {
+          "timezones": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_time_zones/mvt/{z}/{x}/{y}?geom_column=geom&columns=tz_name1st,zone&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89.5,
+              180,
+              89.5
+            ],
+            "attribution": "Natural Earth"
+          }
+        },
+        "layers": [
+          {
+            "id": "Tijdzones",
+            "metadata": {
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "tz_name1st",
+                    "translation": "naam"
+                  },
+                  {
+                    "name": "zone",
+                    "translation": "zone"
+                  }
+                ]
+              }
+            },
+            "type": "fill",
+            "source": "timezones:timezones",
+            "source-layer": "public.ne_10m_time_zones",
+            "paint": {
+              "fill-color": [
+                "case",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  -11
+                ],
+                "#40004b",
+                [
+                  "<",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  -8
+                ],
+                "#762a83",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  -4
+                ],
+                "#9970ab",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  -2
+                ],
+                "#c2a5cf",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  1
+                ],
+                "#e7d4e8",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  3.5
+                ],
+                "#f7f7f7",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  5
+                ],
+                "#d9f0d3",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  6
+                ],
+                "#a6dba0",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  8.75
+                ],
+                "#5aae61",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  10.5
+                ],
+                "#1b7837",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  14
+                ],
+                "#00441b",
+                "#00441b"
+              ],
+              "fill-outline-color": "white",
+              "fill-opacity": 0.4
+            }
+          },
+          {
+            "id": "Tijdzones-lijnen",
+            "type": "line",
+            "source": "timezones:timezones",
+            "source-layer": "public.ne_10m_time_zones",
+            "paint": {
+              "line-color": "white",
+              "line-opacity": 0.8,
+              "line-width": [
+                "interpolate",
+                [
+                  "linear"
+                ],
+                [
+                  "zoom"
+                ],
+                0,
+                1,
+                10,
+                10,
+                24,
+                10
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Tijdzones",
+          "styleid": "timezones",
+          "styletitle": "Tijdzones",
+          "label": "Tijdzones"
+        }
+      },
+      {
+        "id": "mapzenhillshading",
+        "title": "Relief",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "raster-dem",
+            "tiles": [
+              "https://t1.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+              "https://t2.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+              "https://t3.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+              "https://t4.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png"
+            ],
+            "tileSize": 256,
+            "maxzoom": 15,
+            "encoding": "terrarium",
+            "attribution": "NextZen"
+          }
+        },
+        "layers": [
+          {
+            "id": "mapzenhillshading-layer",
+            "type": "hillshade",
+            "source": "mapzenhillshading:source",
+            "paint": {
+              "hillshade-exaggeration": 0.2
+            }
+          }
+        ],
+        "metadata": {
+          "opacity": [
+            "interpolate",
+            [
+              "linear"
+            ],
+            [
+              "zoom"
+            ],
+            12,
+            20,
+            6,
+            50,
+            2,
+            100
+          ],
+          "title": "Relief",
+          "label": "Relief"
+        }
+      },
+      {
+        "id": "worldlandcover",
+        "title": "Landbedekking",
+        "type": "raster",
+        "source": "worldlandcover-source",
+        "minzoom": 0,
+        "maxzoom": 22.5,
+        "metadata": {
+          "getFeatureInfoUrl": "https://tiles.edugis.nl/mapproxy/landcover/wms?version=1.1.1&request=GetFeatureInfo&styles=&layers=landcover&query_layers=landcover",
+          "getFeatureInfoFormat": "application/vnd.ogc.gml",
+          "abstract": "Landbedekkingskaart. Deze kaart geeft aan warmee het land wordt bedekt zoals bijvoorbeeld verschillende soorten vegetatie, zand, steen of ijs.",
+          "legendurl": "https://tiles.edugis.nl/mapproxy/landcover/wms?version=1.1.1&request=GetLegendGraphic&styles=&layer=landcover&format=image/png",
+          "title": "Landbedekking",
+          "label": "Landbedekking"
+        }
+      },
+      {
+        "id": "dda1f252-38cf-4842-a60f-472fbb44b8e9",
+        "title": "Stroomgebieden",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/stroomgebieden.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "dda1f252-38cf-4842-a60f-472fbb44b8e9-layer",
+            "type": "fill",
+            "source": "dda1f252-38cf-4842-a60f-472fbb44b8e9:source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "NAME"
+                ],
+                "Alabama",
+                "#BFB8B8",
+                "Amazon",
+                "#F0810F",
+                "Amu Darya",
+                "#E91E63",
+                "Amur",
+                "#F44336",
+                "Asi (Orontes)",
+                "#00BCD4",
+                "Atrato",
+                "#8BC34A",
+                "Atrek",
+                "#FFC107",
+                "Awash",
+                "#607D8B",
+                "Baikal",
+                "#FF5722",
+                "Balsas",
+                "#795548",
+                "Bandama",
+                "#009688",
+                "Bann",
+                "#03A9F4",
+                "Baraka",
+                "#CDDC39",
+                "Barima",
+                "#4CAF50",
+                "Betisboka",
+                "#FF9800",
+                "Bio Bio",
+                "#FFEB3B",
+                "Brazos",
+                "#9E9E9E",
+                "Buzi",
+                "#8E44AD",
+                "Ca",
+                "#F39C12",
+                "Cauvery",
+                "#27AE60",
+                "Cavally",
+                "#1ABC9C",
+                "Cestos",
+                "#2196F3",
+                "Chao Phraya",
+                "#E74C3C",
+                "Chobut",
+                "#673AB7",
+                "Coco (Segovia)",
+                "#FFC300",
+                "Colorado",
+                "#00ACC1",
+                "Colorado River",
+                "#E67E22",
+                "Columbia",
+                "#9B59B6",
+                "Connecticut",
+                "#8BC7B8",
+                "Corubal",
+                "#F1C40F",
+                "Coruh",
+                "#D35400",
+                "Cross",
+                "#2ECC71",
+                "Cunene",
+                "#2C3E50",
+                "Dalalven",
+                "#8E8E8E",
+                "Danube",
+                "#34495E",
+                "Dasht",
+                "#F7DC6F",
+                "Dnieper",
+                "#00B894",
+                "Dniester",
+                "#9CCC65",
+                "Don",
+                "#FF4081",
+                "Douro-Duero",
+                "#D500F9",
+                "Dra",
+                "#FF1744",
+                "Drin",
+                "#4CAF4F",
+                "Ebro",
+                "#6D4C41",
+                "Elbe",
+                "#FF6D00",
+                "Essequibo",
+                "#00E5FF",
+                "Fane",
+                "#FFA000",
+                "Fly",
+                "#C0392B",
+                "Foyle",
+                "#03DAC6",
+                "Fraser",
+                "#9FB6CD",
+                "Gallegos-Chico",
+                "#B3E5FC",
+                "Gambia",
+                "#FFD600",
+                "Ganges-Brahmaputra",
+                "#4DB6AC",
+                "Garonne",
+                "#6C7A89",
+                "Geba",
+                "#95A5A6",
+                "Glama",
+                "#1B5E20",
+                "Godavari",
+                "#1976D2",
+                "Great Scarcies",
+                "#AA00FF",
+                "Groot",
+                "#E65100",
+                "Guadalquivir",
+                "#795548",
+                "Guadiana",
+                "#4D4D4D",
+                "Han",
+                "#6D4C41",
+                "Hari Rud",
+                "#607D8B",
+                "Helmand",
+                "#827717",
+                "Hudson",
+                "#008CBA",
+                "Hwang Ho",
+                "#FFB900",
+                "Ili",
+                "#9B27B0",
+                "Indigirka",
+                "#EF5350",
+                "Indus",
+                "#006064",
+                "Irrawaddy",
+                "#03A9F4",
+                "Jordan",
+                "#FFAB00",
+                "Jubba-Shebelle",
+                "#3F51B5",
+                "Kaladan",
+                "#4CAF50",
+                "Kapuas",
+                "#7B1FA2",
+                "Kel kit",
+                "#00695C",
+                "Kemijoki",
+                "#FF7043",
+                "Kizil",
+                "#4A148C",
+                "Klamath",
+                "#424242",
+                "Klaralven",
+                "#A5D6A7",
+                "Kolyma",
+                "#FF3D00",
+                "Komoe",
+                "#BF360C",
+                "Krishna",
+                "#76FF03",
+                "Kura - Araks",
+                "#880E4F",
+                "Kuskokwim",
+                "#FFC107",
+                "Kwanza",
+                "#00BFA5",
+                "Lagoon Mirim",
+                "#388E3C",
+                "Lake Chad",
+                "#9E9D24",
+                "Lake Natron",
+                "#FF6E40",
+                "Lake Turkana",
+                "#5D4037",
+                "Lake Ubsa",
+                "#5C6BC0",
+                "Lauca",
+                "#1DE9B6",
+                "Lena",
+                "#8D6E63",
+                "Liao",
+                "#CDDC39",
+                "Lima",
+                "#512DA8",
+                "Limpopo",
+                "#B71C1C",
+                "Little Scarcies",
+                "#757575",
+                "Lofa",
+                "#00796B",
+                "Loire",
+                "#9C27B0",
+                "Lurio",
+                "#E65100",
+                "Ma",
+                "#FF6F00",
+                "Mackenzie",
+                "#FF4081",
+                "Magdalena",
+                "#AD1457",
+                "Mahakam",
+                "#2196F3",
+                "Mahanadi",
+                "#FFA000",
+                "Mamberamo",
+                "#1B5E20",
+                "Mangoky",
+                "#8BC34A",
+                "Mano-Morro",
+                "#E64A19",
+                "Maputo",
+                "#4A148C",
+                "Maritsa",
+                "#4DB6AC",
+                "Maroni",
+                "#455A64",
+                "Medjerda",
+                "#B0BEC5",
+                "Mekong",
+                "#BF360C",
+                "Meuse",
+                "#00BCD4",
+                "Min",
+                "#009688",
+                "Mino",
+                "#0091EA",
+                "Mississippi",
+                "#E64A19",
+                "Moa",
+                "#01579B",
+                "Mono",
+                "#D81B60",
+                "Motagua",
+                "#EF6C00",
+                "Muga",
+                "#0091EA",
+                "Murghab",
+                "#0277BD",
+                "Murray-Darling",
+                "#F50057",
+                "N. Dvina",
+                "#795548",
+                "Narmada",
+                "#FFB300",
+                "Narva",
+                "#FF9800",
+                "Negro",
+                "#F26A69",
+                "Neman",
+                "#F9A825",
+                "Niger",
+                "#4A148C",
+                "Nile",
+                "#7B1FA2",
+                "Nyanga",
+                "#FFC400",
+                "Ob",
+                "#5C6BC0",
+                "Oder",
+                "#9C27B0",
+                "Ogooue",
+                "#0277BD",
+                "Okavango",
+                "#FFEB3B",
+                "Olanga",
+                "#039BE5",
+                "Olifants",
+                "#FF7043",
+                "Omo Wenz",
+                "#2C3E50",
+                "Orange",
+                "#607D8B",
+                "Orinoco",
+                "#F50057",
+                "Oulu",
+                "#E91E63",
+                "Oyapock",
+                "#008CBA",
+                "Pahang",
+                "#BF360C",
+                "Palena",
+                "#00695C",
+                "Panuco",
+                "#FF3D00",
+                "Papaloapan",
+                "#795548",
+                "Parana",
+                "#FFC107",
+                "Parnaiba",
+                "#01579B",
+                "Patia",
+                "#757575",
+                "Pearl",
+                "#BDBDBD",
+                "Penner",
+                "#AA00FF",
+                "Perak",
+                "#009688",
+                "Po",
+                "#0097A7",
+                "Queme",
+                "#3949AB",
+                "Rajang",
+                "#FF5722",
+                "Rezvaya",
+                "#0097A7",
+                "Rhine",
+                "#FFC107",
+                "Rhone",
+                "#F9A825",
+                "Rio Colorado",
+                "#9E9E9E",
+                "Rio Salado",
+                "#673AB7",
+                "Roia",
+                "#FFC107",
+                "Rufiji",
+                "#E64A19",
+                "Ruvuma",
+                "#E65100",
+                "Sacramento",
+                "#FF9800",
+                "Saigon",
+                "#8D6E63",
+                "Salween",
+                "#00BCD4",
+                "San Juan",
+                "#F44336",
+                "Sanaga",
+                "#D32F2F",
+                "Santiago-Lerma-Chapala",
+                "#F44336",
+                "Sao Francisco",
+                "#B71C1C",
+                "Saskatchewan-Nelson",
+                "#673AB7",
+                "Sasquehanna",
+                "#B71C1C",
+                "Sassandra",
+                "#3F51B5",
+                "Savannah",
+                "#009688",
+                "Save",
+                "#F57F17",
+                "Schelde",
+                "#F44336",
+                "Seine",
+                "#D32F2F",
+                "Sembakung",
+                "#8E24AA",
+                "Senegal",
+                "#9C27B0",
+                "Sepik",
+                "#FF5722",
+                "Sevan Lake",
+                "#0277BD",
+                "Si",
+                "#C2185B",
+                "Sinu",
+                "#00695C",
+                "Sittang",
+                "#FFC400",
+                "Skeena",
+                "#673AB7",
+                "Song Hong",
+                "#C2185B",
+                "St John",
+                "#8D6E63",
+                "St Paul",
+                "#546E7A",
+                "St. Lawrence",
+                "#E91E63",
+                "Stikine",
+                "#4CAF50",
+                "Struma",
+                "#039BE5",
+                "Syr Darya",
+                "#F57F17",
+                "Tafna",
+                "#B71C1C",
+                "Tagus",
+                "#D500F9",
+                "Tana",
+                "#00BCD4",
+                "Tapti",
+                "#00BFA5",
+                "Tarim (Yarkand)",
+                "#BF360C",
+                "Tembesi-Hari",
+                "#5D4037",
+                "Terek",
+                "#3F51B5",
+                "Tigris-Euphrates",
+                "#9C27B0",
+                "Ting",
+                "#FFC107",
+                "Titicaca",
+                "#795548",
+                "Tocantins",
+                "#FF9800",
+                "Tornio",
+                "#1B5E20",
+                "Tsiribihina",
+                "#F57F17",
+                "Tumbes",
+                "#673AB7",
+                "Ural",
+                "#8BC34A",
+                "Uruguay",
+                "#7B1FA2",
+                "Usumacinta",
+                "#FF5722",
+                "Vardar",
+                "#607D8B",
+                "Veleka",
+                "#D32F2F",
+                "Vijose",
+                "#F44336",
+                "Vistula",
+                "#9C27B0",
+                "Void",
+                "#C2185B",
+                "Volga",
+                "#9C27B0",
+                "Volta",
+                "#1B5E20",
+                "W. Dvina",
+                "#FF5722",
+                "Weser",
+                "#4CAF50",
+                "Yalu Jiang",
+                "#8D6E63",
+                "Yangtze",
+                "#4DB6AC",
+                "Yaqui",
+                "#FFC107",
+                "Yenisey",
+                "#3F51B5",
+                "Yukon",
+                "#0277BD",
+                "Zaire",
+                "#B71C1C",
+                "Zambezi",
+                "#C2185B",
+                "Zarumilla",
+                "#4CAF50",
+                "#444"
+              ],
+              "fill-opacity": 0.6,
+              "fill-outline-color": "#444"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Stroomgebieden",
+          "abstract": "Een stroomgebied is het afwateringsgebied van één rivier.",
+          "maplayeropen": false,
+          "transparency": 20,
+          "legendclipped": true,
+          "visible": true,
+          "reference": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Stroomgebieden"
+        }
+      },
+      {
+        "id": "lakesandrivers",
+        "title": "Stroomstelsels",
+        "type": "style",
+        "sources": {
+          "rivers": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_rivers_lake_centerlines/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,name_nl&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89.5,
+              180,
+              66.5499852412027
+            ],
+            "attribution": "Natural Earth"
+          },
+          "lakes": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_lakes/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,name_nl&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89.5,
+              180,
+              66.5499852412027
+            ],
+            "attribution": "Natural Earth"
+          }
+        },
+        "layers": [
+          {
+            "id": "rivieren",
+            "type": "line",
+            "metadata": {
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name_nl",
+                    "translation": "nederlandse naam"
+                  },
+                  {
+                    "name": "name",
+                    "translation": "naam"
+                  }
+                ]
+              }
+            },
+            "source": "lakesandrivers:rivers",
+            "source-layer": "public.ne_10m_rivers_lake_centerlines",
+            "paint": {
+              "line-color": "#bdd6ef",
+              "line-width": [
+                "step",
+                [
+                  "zoom"
+                ],
+                1,
+                0,
+                1,
+                5,
+                2,
+                6,
+                4,
+                7,
+                8
+              ]
+            }
+          },
+          {
+            "id": "meren",
+            "metadata": {
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name_nl",
+                    "translation": "nederlandse naam"
+                  },
+                  {
+                    "name": "name",
+                    "translation": "naam"
+                  }
+                ]
+              }
+            },
+            "type": "fill",
+            "source": "lakesandrivers:lakes",
+            "source-layer": "public.ne_10m_lakes",
+            "paint": {
+              "fill-color": "#bed7f0"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Meren en rivieren",
+          "styleid": "lakesandrivers",
+          "styletitle": "Meren en rivieren",
+          "label": "Stroomstelsels"
+        }
+      },
+      {
+        "id": "openweathermaptemperature-new",
+        "title": "Temperatuur",
+        "type": "raster",
+        "source": "openweathermaptemperature-new-source",
+        "metadata": {
+          "legendurl": "https://openweathermap.org/img/a/TT.png",
+          "getFeatureInfoUrl": "https://api.openweathermap.org/data/2.5/weather?appid={openweathermapkey}&lat={latitude}&lon={longitude}&lang=nl&units=metric",
+          "deniedattributes": [
+            "weather-icon"
+          ],
+          "attributes": {
+            "translations": [
+              {
+                "name": "temp",
+                "translation": "temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "humidity",
+                "translation": "luchtvochtigheid",
+                "unit": " %"
+              },
+              {
+                "name": "feels_like",
+                "translation": "gevoelstemperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "temp_max",
+                "translation": "maximum temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "temp_min",
+                "translation": "minimum temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "name",
+                "translation": "locatie"
+              },
+              {
+                "name": "wind-speed",
+                "translation": "wind",
+                "unit": " meter/seconde"
+              },
+              {
+                "name": "wind-deg",
+                "translation": "windrichting tov N",
+                "unit": " °"
+              },
+              {
+                "name": "visibility",
+                "translation": "zicht",
+                "unit": " meter"
+              },
+              {
+                "name": "pressure",
+                "translation": "luchtdruk",
+                "unit": " hPa"
+              },
+              {
+                "name": "weather-description",
+                "translation": "weer"
+              },
+              {
+                "name": "rain",
+                "translation": "neerslag",
+                "unit": " mm/uur"
+              }
+            ]
+          },
+          "timeinterval": 300000,
+          "title": "Temperatuur",
+          "label": "Temperatuur"
+        }
+      },
+      {
+        "id": "openweathermapprecipitation-new",
+        "title": "Neerslag",
+        "type": "raster",
+        "source": "openweathermapprecipitation-new-source",
+        "metadata": {
+          "legendurl": "https://openweathermap.org/img/a/PR.png",
+          "timeinterval": 300000,
+          "getFeatureInfoUrl": "https://api.openweathermap.org/data/2.5/weather?appid={openweathermapkey}&lat={latitude}&lon={longitude}&lang=nl&units=metric",
+          "deniedattributes": [
+            "weather-icon"
+          ],
+          "attributes": {
+            "translations": [
+              {
+                "name": "temp",
+                "translation": "temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "humidity",
+                "translation": "luchtvochtigheid",
+                "unit": " %"
+              },
+              {
+                "name": "feels_like",
+                "translation": "gevoelstemperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "temp_max",
+                "translation": "maximum temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "temp_min",
+                "translation": "minimum temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "name",
+                "translation": "locatie"
+              },
+              {
+                "name": "wind-speed",
+                "translation": "wind",
+                "unit": " meter/seconde"
+              },
+              {
+                "name": "wind-deg",
+                "translation": "windrichting tov N",
+                "unit": " °"
+              },
+              {
+                "name": "visibility",
+                "translation": "zicht",
+                "unit": " meter"
+              },
+              {
+                "name": "pressure",
+                "translation": "luchtdruk",
+                "unit": " hPa"
+              },
+              {
+                "name": "weather-description",
+                "translation": "weer"
+              },
+              {
+                "name": "rain",
+                "translation": "neerslag",
+                "unit": " mm/uur"
+              }
+            ]
+          },
+          "title": "Neerslag",
+          "label": "Neerslag"
+        }
+      },
+      {
+        "id": "openweathermapcloudes-new",
+        "title": "Bewolking",
+        "type": "raster",
+        "source": "openweathermapcloudes-new-source",
+        "metadata": {
+          "legendurl": "https://openweathermap.org/img/a/NT.png",
+          "timeinterval": 300000,
+          "getFeatureInfoUrl": "https://api.openweathermap.org/data/2.5/weather?appid={openweathermapkey}&lat={latitude}&lon={longitude}&lang=nl&units=metric",
+          "deniedattributes": [
+            "weather-icon"
+          ],
+          "attributes": {
+            "translations": [
+              {
+                "name": "temp",
+                "translation": "temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "humidity",
+                "translation": "luchtvochtigheid",
+                "unit": " %"
+              },
+              {
+                "name": "feels_like",
+                "translation": "gevoelstemperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "temp_max",
+                "translation": "maximum temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "temp_min",
+                "translation": "minimum temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "name",
+                "translation": "locatie"
+              },
+              {
+                "name": "wind-speed",
+                "translation": "wind",
+                "unit": " meter/seconde"
+              },
+              {
+                "name": "wind-deg",
+                "translation": "windrichting tov N",
+                "unit": " °"
+              },
+              {
+                "name": "visibility",
+                "translation": "zicht",
+                "unit": " meter"
+              },
+              {
+                "name": "pressure",
+                "translation": "luchtdruk",
+                "unit": " hPa"
+              },
+              {
+                "name": "weather-description",
+                "translation": "weer"
+              },
+              {
+                "name": "rain",
+                "translation": "neerslag",
+                "unit": " mm/uur"
+              }
+            ]
+          },
+          "title": "Bewolking",
+          "label": "Bewolking"
+        }
+      },
+      {
+        "id": "openweathermappressure-new",
+        "title": "Luchtdruk",
+        "type": "raster",
+        "source": "openweathermappressure-new-source",
+        "metadata": {
+          "legendurl": "https://openweathermap.org/img/a/PN.png",
+          "timeinterval": 300000,
+          "getFeatureInfoUrl": "https://api.openweathermap.org/data/2.5/weather?appid={openweathermapkey}&lat={latitude}&lon={longitude}&lang=nl&units=metric",
+          "deniedattributes": [
+            "weather-icon"
+          ],
+          "attributes": {
+            "translations": [
+              {
+                "name": "temp",
+                "translation": "temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "humidity",
+                "translation": "luchtvochtigheid",
+                "unit": " %"
+              },
+              {
+                "name": "feels_like",
+                "translation": "gevoelstemperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "temp_max",
+                "translation": "maximum temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "temp_min",
+                "translation": "minimum temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "name",
+                "translation": "locatie"
+              },
+              {
+                "name": "wind-speed",
+                "translation": "wind",
+                "unit": " meter/seconde"
+              },
+              {
+                "name": "wind-deg",
+                "translation": "windrichting tov N",
+                "unit": " °"
+              },
+              {
+                "name": "visibility",
+                "translation": "zicht",
+                "unit": " meter"
+              },
+              {
+                "name": "pressure",
+                "translation": "luchtdruk",
+                "unit": " hPa"
+              },
+              {
+                "name": "weather-description",
+                "translation": "weer"
+              },
+              {
+                "name": "rain",
+                "translation": "neerslag",
+                "unit": " mm/uur"
+              }
+            ]
+          },
+          "title": "Luchtdruk",
+          "label": "Luchtdruk"
+        }
+      },
+      {
+        "id": "openweathermapwind-new",
+        "title": "Windsnelheid",
+        "type": "raster",
+        "source": "openweathermapwind-new-source",
+        "metadata": {
+          "legendurl": "",
+          "timeinterval": 300000,
+          "getFeatureInfoUrl": "https://api.openweathermap.org/data/2.5/weather?appid={openweathermapkey}&lat={latitude}&lon={longitude}&lang=nl&units=metric",
+          "deniedattributes": [
+            "weather-icon"
+          ],
+          "attributes": {
+            "translations": [
+              {
+                "name": "temp",
+                "translation": "temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "humidity",
+                "translation": "luchtvochtigheid",
+                "unit": " %"
+              },
+              {
+                "name": "feels_like",
+                "translation": "gevoelstemperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "temp_max",
+                "translation": "maximum temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "temp_min",
+                "translation": "minimum temperatuur",
+                "unit": " °C"
+              },
+              {
+                "name": "name",
+                "translation": "locatie"
+              },
+              {
+                "name": "wind-speed",
+                "translation": "wind",
+                "unit": " meter/seconde"
+              },
+              {
+                "name": "wind-deg",
+                "translation": "windrichting tov N",
+                "unit": " °"
+              },
+              {
+                "name": "visibility",
+                "translation": "zicht",
+                "unit": " meter"
+              },
+              {
+                "name": "pressure",
+                "translation": "luchtdruk",
+                "unit": " hPa"
+              },
+              {
+                "name": "weather-description",
+                "translation": "weer"
+              },
+              {
+                "name": "rain",
+                "translation": "neerslag",
+                "unit": " mm/uur"
+              }
+            ]
+          },
+          "title": "Windsnelheid",
+          "label": "Windsnelheid"
+        }
+      },
+      {
+        "id": "cd35f895-2af4-1111-b996-aa6d820b0a89",
+        "title": "Klimaat Koppen 2017",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/koppen2017.geo.json",
+            "attribution": "EduGIS"
+          }
+        },
+        "layers": [
+          {
+            "id": "cd35f895-2af4-1111-b996-aa6d820b0a89-layer",
+            "type": "fill",
+            "source": "cd35f895-2af4-1111-b996-aa6d820b0a89:source",
+            "paint": {
+              "fill-outline-color": "rgba(255,255,255,0)",
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "Code"
+                ],
+                "Af",
+                "#1300FC",
+                "Am",
+                "#0E73FC",
+                "Aw",
+                "#3AAAFC",
+                "As",
+                "#3AAAFC",
+                "BWh",
+                "#FD0000",
+                "BWk",
+                "#FE9594",
+                "BSh",
+                "rgba(200, 164, 43, 1)",
+                "BSk",
+                "#FDDA62",
+                "Csa",
+                "#FCFE04",
+                "Csb",
+                "#CECC08",
+                "Csc",
+                "#9B9A03",
+                "Cwa",
+                "#94FE97",
+                "Cwb",
+                "#5FC765",
+                "Cwc",
+                "#369633",
+                "Cfa",
+                "#C5FE4B",
+                "Cfb",
+                "#63FD32",
+                "Cfc",
+                "#35C600",
+                "Dsa",
+                "#FC00FB",
+                "Dsb",
+                "#C900C4",
+                "Dsc",
+                "#983396",
+                "Dsd",
+                "#8E5D92",
+                "Dwa",
+                "#A5AFFF",
+                "Dwb",
+                "#4A78E3",
+                "Dwc",
+                "#484EB4",
+                "Dwd",
+                "#30008A",
+                "Dfa",
+                "#00FCFD",
+                "Dfb",
+                "#3DC6FA",
+                "Dfc",
+                "#007E7E",
+                "Dfd",
+                "#004660",
+                "ET",
+                "#AEB0AD",
+                "EH",
+                "#FFFFFF",
+                "EF",
+                "#686967",
+                "#000000"
+              ],
+              "fill-opacity": 0.8
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Klimaten 2017",
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam"
+              }
+            ]
+          },
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ],
+          "visible": true,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Klimaat Koppen 2017"
+        }
+      },
+      {
+        "id": "koppen-klimaat-kaart",
+        "title": "Klimaat Koppen 2007",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.climate_2007_koppen_geiger/mvt/{z}/{x}/{y}?geom_column=geom&columns=klassificatie,klimaat,neerslagverdeling,temperatuurverschil&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89.5,
+              180,
+              83.6
+            ]
+          }
+        },
+        "layers": [
+          {
+            "id": "koppen-klimaat-kaart-layer",
+            "type": "fill",
+            "source": "koppen-klimaat-kaart:source",
+            "source-layer": "public.climate_2007_koppen_geiger",
+            "paint": {
+              "fill-outline-color": "rgba(255,255,255,0)",
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "klassificatie"
+                ],
+                "Af",
+                "#1300FC",
+                "Am",
+                "#0E73FC",
+                "Aw",
+                "#3AAAFC",
+                "BWh",
+                "#FD0000",
+                "BWk",
+                "#FE9594",
+                "BSh",
+                "rgba(200, 164, 43, 1)",
+                "BSk",
+                "#FDDA62",
+                "Csa",
+                "#FCFE04",
+                "Csb",
+                "#CECC08",
+                "Cwa",
+                "#94FE97",
+                "Cwb",
+                "#5FC765",
+                "Cwc",
+                "#369633",
+                "Cfa",
+                "#C5FE4B",
+                "Cfb",
+                "#63FD32",
+                "Cfc",
+                "#35C600",
+                "Dsa",
+                "#FC00FB",
+                "Dsb",
+                "#C900C4",
+                "Dsc",
+                "#983396",
+                "Dsd",
+                "#8E5D92",
+                "Dwa",
+                "#A5AFFF",
+                "Dwb",
+                "#4A78E3",
+                "Dwc",
+                "#484EB4",
+                "Dwd",
+                "#30008A",
+                "Dfa",
+                "#00FCFD",
+                "Dfb",
+                "#3DC6FA",
+                "Dfc",
+                "#007E7E",
+                "Dfd",
+                "#004660",
+                "ET",
+                "#AEB0AD",
+                "EH",
+                "#FFFFFF",
+                "EF",
+                "#686967",
+                "#000000"
+              ],
+              "fill-opacity": 0.8
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Klimaatkaart volgens Koppen Geiger. Gebruik de i-tool en voor uitgebreidere informatie per klimaatgebied. De klassificatie bestaat uit 3 letters. De eerste letter staat voor het type klimaat. A: Tropisch, B: Droog, C: Gematigd, D: Landklimaat, E: Poolklimaat. De klassificatie wordt verder uitgelegd op wikipedia: https://nl.wikipedia.org/wiki/Klimaatclassificatie_van_K%C3%B6ppen",
+          "title": "Klimaat Koppen",
+          "label": "Klimaat Koppen 2007"
+        }
+      },
+      {
+        "id": "624eeac3-d7cf-4d0f-86c0-5527fb062aeb",
+        "title": "Mondiale luchtstroming",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/mondiale_luchtstroming.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "624eeac3-d7cf-4d0f-86c0-5527fb062aeb-layer",
+            "type": "fill",
+            "source": "624eeac3-d7cf-4d0f-86c0-5527fb062aeb:source",
+            "paint": {
+              "fill-color": "rgba(199.428,235.923,255,1)",
+              "fill-opacity": 0.6,
+              "fill-outline-color": "#444"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Mondiale luchtstroming",
+          "abstract": "Vereenvoudigde luchtstroming als de planeet een gladde bol zou zijn zonder water.",
+          "maplayeropen": false,
+          "transparency": 20,
+          "legendclipped": false,
+          "visible": true,
+          "reference": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Mondiale luchtstroming"
+        }
+      },
+      {
+        "id": "cd1ae11e-6625-439a-a6ee-decccd44634e",
+        "title": "Oceaanstroming",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/oceaanstromingen.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "cd1ae11e-6625-439a-a6ee-decccd44634e-layer",
+            "type": "fill",
+            "source": "cd1ae11e-6625-439a-a6ee-decccd44634e:source",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "Temperatuur"
+                ],
+                "Warm",
+                "#ff3737",
+                "Koud",
+                "#0095fb",
+                "#444"
+              ],
+              "fill-opacity": 0.6,
+              "fill-outline-color": "#444"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Oceaanstromingen",
+          "abstract": "Windgedreven oceaancirculatie: De stromingen in de oceaan worden aangedreven aan het zeeoppervlak, vooral door de krachten die worden uitgeoefend door de wind.  https://www.knmi.nl/kennis-en-datacentrum/achtergrond/windgedreven-oceaancirculatie",
+          "label": "Oceaanstroming"
+        }
+      },
+      {
+        "id": "cd1ae11e-7725-439a-a6ee-decccd44634e",
+        "title": "Thermohaliene circulatie",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/thermohalienecirculatie.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "cd1ae11e-7725-439a-a6ee-decccd44634e-layer",
+            "type": "line",
+            "source": "cd1ae11e-7725-439a-a6ee-decccd44634e:source",
+            "paint": {
+              "line-color": [
+                "match",
+                [
+                  "get",
+                  "Position"
+                ],
+                "Surface",
+                "rgba(100, 202, 255, 1)",
+                "Transition",
+                "rgba(0, 167, 255, 1)",
+                "Deep",
+                "rgba(0, 118, 180, 1)",
+                "#f0027f"
+              ],
+              "line-width": 12
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Thermohaliene circulatie",
+          "abstract": "Langzame diepe stroming, gedreven door verschillen in zoutgehalte en temperatuur.",
+          "label": "Thermohaliene circulatie"
+        }
+      },
+      {
+        "id": "cd1ae11e-2425-439a-a6ee-decccd44634e",
+        "title": "Afzinkgebieden",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/afzinkendwater.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "cd1ae11e-2425-439a-a6ee-decccd44634e-layer",
+            "type": "fill",
+            "source": "cd1ae11e-2425-439a-a6ee-decccd44634e:source",
+            "paint": {
+              "fill-color": "rgba(223.774,89.732,104.823,1)",
+              "fill-opacity": 0.63,
+              "fill-outline-color": "#444"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Afzinkgebieden",
+          "abstract": "Diepzeepomp, hier zakt, na verdamping en warmte afgifte, koud en zout water naar diepere lagen van de oceaan.",
+          "label": "Afzinkgebieden"
+        }
+      },
+      {
+        "id": "cd1ae11e-8725-439a-a6ee-decccd44634e",
+        "title": "Opwellend water",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/opwellendwater.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "cd1ae11e-8725-439a-a6ee-decccd44634e-layer",
+            "type": "fill",
+            "source": "cd1ae11e-8725-439a-a6ee-decccd44634e:source",
+            "paint": {
+              "fill-color": "rgba(76.344,214.519,239.264,1)",
+              "fill-opacity": 0.6,
+              "fill-outline-color": "#444"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Opwellend water",
+          "abstract": "Hier welt koud water naar boven.",
+          "label": "Opwellend water"
+        }
+      },
+      {
+        "id": "neerslag-jaarlijks-gemiddeld",
+        "title": "Neerslag gemiddeld (jaarlijks)",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.wc_1_2_5m_bio_12_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=annualprecipitation,mean,min,max&include_nulls=0",
+              "https://t1.edugis.nl/data/public.wc_1_2_5m_bio_12_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=annualprecipitation,mean,min,max&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89.9583333333333,
+              180,
+              83.6666666666667
+            ],
+            "attribution": "<a href=\"https://www.worldclim.org/data/worldclim21.html\" target=\"blank\">WorldClim.org</a>"
+          }
+        },
+        "layers": [
+          {
+            "id": "neerslag-jaarlijks-gemiddeld-layer",
+            "type": "fill",
+            "source": "neerslag-jaarlijks-gemiddeld:source",
+            "source-layer": "public.wc_1_2_5m_bio_12_vec",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "annualprecipitation"
+                ],
+                10,
+                "#ffffcc",
+                35,
+                "#EDF0C4",
+                85,
+                "#DBE1BD",
+                150,
+                "#C9D3B6",
+                220,
+                "#B7C4AF",
+                300,
+                "#A6B6A7",
+                400,
+                "#94A7A0",
+                500,
+                "#829999",
+                600,
+                "#708A92",
+                800,
+                "#5E7B8B",
+                1250,
+                "#4D6D83",
+                2000,
+                "#3B5E7C",
+                3000,
+                "#295075",
+                4000,
+                "#17416E",
+                6000,
+                "#063367",
+                "#fff"
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "attributes": {
+            "translations": [
+              {
+                "name": "mean",
+                "translation": "gemiddelde neerslag",
+                "unit": " mm/jaar",
+                "decimals": 0
+              },
+              {
+                "name": "min",
+                "translation": "van",
+                "unit": " mm/jaar",
+                "decimals": 0
+              },
+              {
+                "name": "max",
+                "translation": "tot",
+                "unit": " mm/jaar",
+                "decimals": 0
+              },
+              {
+                "name": "annualprecipitation",
+                "translation": "klasse",
+                "unit": " mm/jaar"
+              }
+            ]
+          },
+          "title": "Neerslag jaarlijks gemiddeld",
+          "label": "Neerslag gemiddeld (jaarlijks)"
+        }
+      },
+      {
+        "id": "b48d1c09-7dc7-4d1d-b44b-f777400c4472",
+        "title": "Neerslag Januari",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.wc2_1_5m_prec_01_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=averageprecjan,mean,min,max&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89.5,
+              180,
+              83.6666666666667
+            ],
+            "attribution": "<a href=\"https://www.worldclim.org/data/worldclim21.html\" target=\"blank\">WorldClim.org</a>"
+          }
+        },
+        "layers": [
+          {
+            "id": "b48d1c09-7dc7-4d1d-b44b-f777400c4472-layer",
+            "type": "fill",
+            "source": "b48d1c09-7dc7-4d1d-b44b-f777400c4472:source",
+            "source-layer": "public.wc2_1_5m_prec_01_vec",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "averageprecjan"
+                ],
+                1,
+                "#ffffcc",
+                3,
+                "#EDF0C4",
+                7,
+                "#DBE1BD",
+                12,
+                "#C9D3B6",
+                16,
+                "#B7C4AF",
+                24,
+                "#A6B6A7",
+                30,
+                "#94A7A0",
+                39,
+                "#829999",
+                51,
+                "#708A92",
+                70,
+                "#5E7B8B",
+                100,
+                "#4D6D83",
+                165,
+                "#3B5E7C",
+                245,
+                "#295075",
+                340,
+                "#17416E",
+                500,
+                "#063367",
+                "#fff"
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "attributes": {
+            "translations": [
+              {
+                "name": "mean",
+                "translation": "gemiddelde neerslag",
+                "unit": " mm/januari",
+                "decimals": 0
+              },
+              {
+                "name": "min",
+                "translation": "van",
+                "unit": " mm/januari",
+                "decimals": 0
+              },
+              {
+                "name": "max",
+                "translation": "tot",
+                "unit": " mm/januari",
+                "decimals": 0
+              },
+              {
+                "name": "averageprecjan",
+                "translation": "neerslag klasse",
+                "unit": " mm/januari"
+              }
+            ]
+          },
+          "title": "Neerslag januari gemiddeld",
+          "label": "Neerslag Januari"
+        }
+      },
+      {
+        "id": "448d1c09-8000-4d1d-b44b-f777400c4476",
+        "title": "Neerslag Juli",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.wc2_1_5m_prec_07_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=averageprecjul,mean,min,max&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89.5,
+              180,
+              83.6666666666667
+            ],
+            "attribution": "<a href=\"https://www.worldclim.org/data/worldclim21.html\" target=\"blank\">WorldClim.org</a>"
+          }
+        },
+        "layers": [
+          {
+            "id": "448d1c09-8000-4d1d-b44b-f777400c4476-layer",
+            "type": "fill",
+            "source": "448d1c09-8000-4d1d-b44b-f777400c4476:source",
+            "source-layer": "public.wc2_1_5m_prec_07_vec",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "averageprecjul"
+                ],
+                1,
+                "#ffffcc",
+                3,
+                "#EDF0C4",
+                7,
+                "#DBE1BD",
+                12,
+                "#C9D3B6",
+                16,
+                "#B7C4AF",
+                24,
+                "#A6B6A7",
+                30,
+                "#94A7A0",
+                39,
+                "#829999",
+                51,
+                "#708A92",
+                70,
+                "#5E7B8B",
+                100,
+                "#4D6D83",
+                165,
+                "#3B5E7C",
+                245,
+                "#295075",
+                340,
+                "#17416E",
+                500,
+                "#063367",
+                "#fff"
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "attributes": {
+            "translations": [
+              {
+                "name": "mean",
+                "translation": "gemiddelde neerslag",
+                "unit": " mm/juli",
+                "decimals": 0
+              },
+              {
+                "name": "min",
+                "translation": "van",
+                "unit": " mm/juli",
+                "decimals": 0
+              },
+              {
+                "name": "max",
+                "translation": "tot",
+                "unit": " mm/juli",
+                "decimals": 0
+              },
+              {
+                "name": "averageprecjul",
+                "translation": "neerslag klasse",
+                "unit": " mm/juli"
+              }
+            ]
+          },
+          "title": "Neerslag juli gemiddeld",
+          "label": "Neerslag Juli"
+        }
+      },
+      {
+        "id": "c9473b4b-e1b4-4f15-918a-a7f1cedf03dc",
+        "title": "Temperatuur Januari",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.wc2_1_5m_tavg_01_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=averagetempjan,mean,min,max&include_nulls=0",
+              "https://t1.edugis.nl/data/public.wc2_1_5m_tavg_01_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=averagetempjan,mean,min,max&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89.9583333333333,
+              180,
+              83.6666666666667
+            ],
+            "attribution": "<a href=\"https://www.worldclim.org/data/worldclim21.html\" target=\"blank\">WorldClim.org</a>"
+          }
+        },
+        "layers": [
+          {
+            "id": "c9473b4b-e1b4-4f15-918a-a7f1cedf03dc-layer",
+            "type": "fill",
+            "source": "c9473b4b-e1b4-4f15-918a-a7f1cedf03dc:source",
+            "source-layer": "public.wc2_1_5m_tavg_01_vec",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "averagetempjan"
+                ],
+                -60,
+                "#081d58",
+                -45,
+                "#3f007d",
+                -37,
+                "#54278f",
+                -32,
+                "#6a51a3",
+                -27,
+                "#807dba",
+                -22,
+                "#9e9ac8",
+                -17,
+                "#bcbddc",
+                -12,
+                "#dadaeb",
+                -7,
+                "#efedf5",
+                -2,
+                "#fcfbfd",
+                3,
+                "#fee8c8",
+                8,
+                "#fdd49e",
+                13,
+                "#fdbb84",
+                18,
+                "#fc8d59",
+                23,
+                "#ef6548",
+                28,
+                "#d7301f",
+                33,
+                "#a11616",
+                38,
+                "#7f0000",
+                43,
+                "#7a0177",
+                "#000"
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "attributes": {
+            "translations": [
+              {
+                "name": "mean",
+                "translation": "gemiddelde januari temperatuur",
+                "unit": " °C",
+                "decimals": 1
+              },
+              {
+                "name": "min",
+                "translation": "van",
+                "unit": " °C",
+                "decimals": 0
+              },
+              {
+                "name": "max",
+                "translation": "tot",
+                "unit": " °C",
+                "decimals": 0
+              },
+              {
+                "name": "averagetempjan",
+                "translation": "klasse",
+                "unit": " °C"
+              }
+            ]
+          },
+          "title": "Temperatuur gemiddeld in januari",
+          "label": "Temperatuur Januari"
+        }
+      },
+      {
+        "id": "9b687f17-c174-4436-a706-3b4ead044845",
+        "title": "Temperatuur Juli",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.wc2_1_5m_tavg_07_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=averagetempjul,mean,min,max&include_nulls=0",
+              "https://t1.edugis.nl/data/public.wc2_1_5m_tavg_07_vec/mvt/{z}/{x}/{y}?geom_column=geom&columns=averagetempjul,mean,min,max&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89.9583333333333,
+              180,
+              83.6666666666667
+            ],
+            "attribution": "<a href=\"https://www.worldclim.org/data/worldclim21.html\" target=\"blank\">WorldClim.org</a>"
+          }
+        },
+        "layers": [
+          {
+            "id": "9b687f17-c174-4436-a706-3b4ead044845-layer",
+            "type": "fill",
+            "source": "9b687f17-c174-4436-a706-3b4ead044845:source",
+            "source-layer": "public.wc2_1_5m_tavg_07_vec",
+            "paint": {
+              "fill-color": [
+                "match",
+                [
+                  "get",
+                  "averagetempjul"
+                ],
+                -60,
+                "#081d58",
+                -45,
+                "#3f007d",
+                -37,
+                "#54278f",
+                -32,
+                "#6a51a3",
+                -27,
+                "#807dba",
+                -22,
+                "#9e9ac8",
+                -17,
+                "#bcbddc",
+                -12,
+                "#dadaeb",
+                -7,
+                "#efedf5",
+                -2,
+                "#fcfbfd",
+                3,
+                "#fee8c8",
+                8,
+                "#fdd49e",
+                13,
+                "#fdbb84",
+                18,
+                "#fc8d59",
+                23,
+                "#ef6548",
+                28,
+                "#d7301f",
+                33,
+                "#a11616",
+                38,
+                "#7f0000",
+                43,
+                "#7a0177",
+                "#000"
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "attributes": {
+            "translations": [
+              {
+                "name": "mean",
+                "translation": "gemiddelde juli temperatuur",
+                "unit": " °C",
+                "decimals": 1
+              },
+              {
+                "name": "min",
+                "translation": "van",
+                "unit": " °C",
+                "decimals": 0
+              },
+              {
+                "name": "max",
+                "translation": "tot",
+                "unit": " °C",
+                "decimals": 0
+              },
+              {
+                "name": "averagetempjul",
+                "translation": "klasse",
+                "unit": " °C"
+              }
+            ]
+          },
+          "title": "Temperatuur gemiddeld in juli",
+          "label": "Temperatuur Juli"
+        }
+      },
+      {
+        "id": "countryborders",
+        "title": "Landen",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geom&columns=name_nl&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89,
+              180,
+              83.6341006530001
+            ]
+          }
+        },
+        "layers": [
+          {
+            "id": "countryborders-layer",
+            "type": "fill",
+            "source": "countryborders:source",
+            "source-layer": "public.ne_10m_admin_0_countries",
+            "paint": {
+              "fill-color": "rgba(0,0,0,0)",
+              "fill-outline-color": "black"
+            }
+          }
+        ],
+        "metadata": {
+          "attributes": {
+            "translations": [
+              {
+                "name": "name_nl",
+                "translation": "naam"
+              }
+            ]
+          },
+          "title": "Landen",
+          "label": "Landen"
+        }
+      },
+      {
+        "id": "districtborders",
+        "title": "Staten en provincies",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces/mvt/{z}/{x}/{y}?geom_column=geom&columns=name&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89,
+              180,
+              83.6341006530001
+            ]
+          }
+        },
+        "layers": [
+          {
+            "id": "districtborders-layer",
+            "type": "fill",
+            "source": "districtborders:source",
+            "source-layer": "public.ne_10m_admin_1_states_provinces",
+            "paint": {
+              "fill-color": "rgba(0,0,0,0)",
+              "fill-outline-color": "gray"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Staten en provincies",
+          "label": "Staten en provincies"
+        }
+      },
+      {
+        "id": "countrypopest",
+        "title": "Inwonertal per land",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geompoint&columns=name,pop_est&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89,
+              180,
+              83.6341006530001
+            ]
+          }
+        },
+        "layers": [
+          {
+            "id": "countrypopest-layer",
+            "type": "circle",
+            "source": "countrypopest:source",
+            "source-layer": "public.ne_10m_admin_0_countries",
+            "paint": {
+              "circle-radius": [
+                "interpolate",
+                [
+                  "exponential",
+                  2
+                ],
+                [
+                  "zoom"
+                ],
+                0,
+                [
+                  "+",
+                  1,
+                  [
+                    "*",
+                    0.00025,
+                    [
+                      "sqrt",
+                      [
+                        "get",
+                        "pop_est"
+                      ]
+                    ]
+                  ]
+                ],
+                6,
+                [
+                  "*",
+                  0.016,
+                  [
+                    "sqrt",
+                    [
+                      "get",
+                      "pop_est"
+                    ]
+                  ]
+                ],
+                14,
+                [
+                  "*",
+                  0.016,
+                  [
+                    "sqrt",
+                    [
+                      "get",
+                      "pop_est"
+                    ]
+                  ]
+                ]
+              ],
+              "circle-color": "#a63603",
+              "circle-stroke-color": "white",
+              "circle-stroke-width": 1,
+              "circle-pitch-alignment": "map"
+            }
+          }
+        ],
+        "metadata": {
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam",
+                "unit": ""
+              },
+              {
+                "name": "pop_est",
+                "translation": "bevolking",
+                "unit": " inw"
+              }
+            ]
+          },
+          "title": "Inwonertal per land",
+          "label": "Inwonertal per land"
+        }
+      },
+      {
+        "id": "countrypopdensity",
+        "title": "Bevolkingsdichtheid | Landen",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.world_population_moredetailed/mvt/{z}/{x}/{y}?geom_column=geom&columns=country,population,population_density,area&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89,
+              180,
+              83.6341006530001
+            ],
+            "attribution": "World Bank"
+          }
+        },
+        "layers": [
+          {
+            "id": "countrypopdensity-layer",
+            "type": "fill",
+            "source": "countrypopdensity:source",
+            "source-layer": "public.world_population_moredetailed",
+            "paint": {
+              "fill-color": [
+                "case",
+                [
+                  "<",
+                  [
+                    "get",
+                    "population_density"
+                  ],
+                  20
+                ],
+                "#feedde",
+                [
+                  "<",
+                  [
+                    "get",
+                    "population_density"
+                  ],
+                  40
+                ],
+                "#fdd0a2",
+                [
+                  "<",
+                  [
+                    "get",
+                    "population_density"
+                  ],
+                  70
+                ],
+                "#fdae6b",
+                [
+                  "<",
+                  [
+                    "get",
+                    "population_density"
+                  ],
+                  100
+                ],
+                "#fd8d3c",
+                [
+                  "<",
+                  [
+                    "get",
+                    "population_density"
+                  ],
+                  150
+                ],
+                "#f16913",
+                [
+                  "<",
+                  [
+                    "get",
+                    "population_density"
+                  ],
+                  300
+                ],
+                "#d94801",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "population_density"
+                  ],
+                  20000
+                ],
+                "#8c2d04",
+                "#8c2d04"
+              ],
+              "fill-outline-color": "white",
+              "fill-opacity": 0.8
+            },
+            "filter": [
+              "has",
+              "population_density"
+            ]
+          }
+        ],
+        "metadata": {
+          "abstract": "World population per country 2018. Density is calculated by deviding population by country surface area.",
+          "attributes": {
+            "translations": [
+              {
+                "name": "country",
+                "translation": "country",
+                "unit": ""
+              },
+              {
+                "name": "population",
+                "translation": "population",
+                "unit": " inhabitants"
+              },
+              {
+                "name": "population_density",
+                "translation": "population density",
+                "unit": " inh/km2"
+              },
+              {
+                "name": "area",
+                "translation": "surface area",
+                "unit": " km2"
+              }
+            ]
+          },
+          "label": "Bevolkingsdichtheid | Landen"
+        }
+      },
+      {
+        "id": "bevolking2015",
+        "title": "Bevolkingsdichtheid | Raster",
+        "type": "raster",
+        "source": "bevolking2015-source",
+        "maxzoom": 22.5,
+        "metadata": {
+          "abstract": "gegevens: 2015",
+          "getFeatureInfoUrl": "https://map.edugis.nl/cgi-bin/mapserv?map=maps/edugis/cache/population.map&version=1.1.1&request=GetFeatureInfo&styles=&layers=Bevolkingsdichtheid_2015&query_layers=Bevolkingsdichtheid_2015&srs=EPSG:900913",
+          "getFeatureInfoFormat": "application/vnd.ogc.gml",
+          "legendurl": "https://mapserver.edugis.nl/cgi-bin/mapserv?map=maps/edugis/cache/population.map&version=1.1.1&service=WMS&request=GetLegendGraphic&layer=Bevolkingsdichtheid_2015&format=image/png&STYLE=default",
+          "title": "Bevolkingsdichtheid | Raster",
+          "label": "Bevolkingsdichtheid | Raster"
+        }
+      },
+      {
+        "id": "populationdensity",
+        "title": "Bevolkingsdichtheid | Regio",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces_lakes_pop/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,pop_sum,pop_dens,admin,type,type_en&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89,
+              180,
+              83.6341006530001
+            ],
+            "attribution": "<a href=\"https://www.worldpop.org/\">WorldPop</a>"
+          }
+        },
+        "layers": [
+          {
+            "id": "populationdensity-layer",
+            "type": "fill",
+            "source": "populationdensity:source",
+            "source-layer": "public.ne_10m_admin_1_states_provinces_lakes_pop",
+            "paint": {
+              "fill-color": [
+                "case",
+                [
+                  "==",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  0
+                ],
+                "#ffffff",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  10
+                ],
+                "#fff7ec",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  26
+                ],
+                "#fee8c8",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  48
+                ],
+                "#fdd49e",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  72
+                ],
+                "#fdbb84",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  107
+                ],
+                "#fc8d59",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  174
+                ],
+                "#ef6548",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  309
+                ],
+                "#d7301f",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  759
+                ],
+                "#b30000",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  600104
+                ],
+                "#7f0000",
+                "#7f0000"
+              ],
+              "fill-opacity": 0.8
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Bevolking 2020 per Natural Earth admin level 1 (landsdeel). Bevolking berekend uit 1km WorldPop mosaic grid 2020",
+          "attributes": {
+            "translations": [
+              {
+                "name": "pop_dens",
+                "translation": "bevolkingsdichtheid",
+                "unit": " inw/km2"
+              }
+            ]
+          },
+          "title": "Bevolkingsdichtheid | Regio",
+          "label": "Bevolkingsdichtheid | Regio"
+        }
+      },
+      {
+        "id": "population3d",
+        "title": "Bevolkingsdichtheid | Regio 3D",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces_lakes_pop/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,pop_sum,pop_dens,admin,type,type_en&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89,
+              180,
+              83.6341006530001
+            ],
+            "attribution": "<a href=\"https://www.worldpop.org/\">WorldPop</a>"
+          }
+        },
+        "layers": [
+          {
+            "id": "population3d-layer",
+            "type": "fill-extrusion",
+            "source": "population3d:source",
+            "source-layer": "public.ne_10m_admin_1_states_provinces_lakes_pop",
+            "paint": {
+              "fill-extrusion-color": [
+                "case",
+                [
+                  "==",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  0
+                ],
+                "#ffffff",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  10
+                ],
+                "#fff7ec",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  26
+                ],
+                "#fee8c8",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  48
+                ],
+                "#fdd49e",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  72
+                ],
+                "#fdbb84",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  107
+                ],
+                "#fc8d59",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  174
+                ],
+                "#ef6548",
+                [
+                  "<",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  309
+                ],
+                "#d7301f",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  759
+                ],
+                "#b30000",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "pop_dens"
+                  ],
+                  600104
+                ],
+                "#7f0000",
+                "#7f0000"
+              ],
+              "fill-extrusion-height": [
+                "*",
+                5,
+                [
+                  "get",
+                  "pop_dens"
+                ]
+              ],
+              "fill-extrusion-opacity": 0.8
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Bevolking 2020 per Natural Earth admin level 1 (landsdeel). Bevolking berekend uit 1km WorldPop mosaic grid 2020",
+          "attributes": {
+            "translations": [
+              {
+                "name": "pop_dens",
+                "translation": "bevolkingsdichtheid",
+                "unit": " inw/km2"
+              }
+            ]
+          },
+          "title": "Bevolkingsdichtheid | Regio 3D",
+          "label": "Bevolkingsdichtheid | Regio 3D"
+        }
+      },
+      {
+        "id": "populationsum",
+        "title": "Bevolkingsdichtheid | Stippenkaart",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces_lakes_pop/mvt/{z}/{x}/{y}?geom_column=geompoint&columns=name,pop_sum,pop_dens,admin,type,type_en&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89,
+              180,
+              83.6341006530001
+            ],
+            "attribution": "<a href=\"https://www.worldpop.org/\">WorldPop</a>"
+          }
+        },
+        "layers": [
+          {
+            "id": "populationsum-layer",
+            "type": "circle",
+            "source": "populationsum:source",
+            "source-layer": "public.ne_10m_admin_1_states_provinces_lakes_pop",
+            "paint": {
+              "circle-color": "#d7301f",
+              "circle-stroke-color": "rgba(255,255,255,0.6)",
+              "circle-stroke-width": 0.5,
+              "circle-radius": [
+                "interpolate",
+                [
+                  "exponential",
+                  2
+                ],
+                [
+                  "zoom"
+                ],
+                0,
+                [
+                  "+",
+                  1,
+                  [
+                    "*",
+                    0.00025,
+                    [
+                      "sqrt",
+                      [
+                        "get",
+                        "pop_sum"
+                      ]
+                    ]
+                  ]
+                ],
+                6,
+                [
+                  "*",
+                  0.016,
+                  [
+                    "sqrt",
+                    [
+                      "get",
+                      "pop_sum"
+                    ]
+                  ]
+                ],
+                14,
+                [
+                  "*",
+                  0.016,
+                  [
+                    "sqrt",
+                    [
+                      "get",
+                      "pop_sum"
+                    ]
+                  ]
+                ]
+              ],
+              "circle-pitch-alignment": "map"
+            },
+            "layout": {
+              "circle-sort-key": [
+                "-",
+                [
+                  "get",
+                  "pop_sum"
+                ]
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Bevolking 2020 per Natural Earth admin level 1 (landsdeel). Bevolking berekend uit 1km WorldPop mosaic grid 2020",
+          "title": "Bevolkingsdichtheid | Stippenkaart",
+          "label": "Bevolkingsdichtheid | Stippenkaart"
+        }
+      },
+      {
+        "id": "citiesandtowns2",
+        "title": "Stedelijke bevolking",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_populated_places/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,name_nl,timezone,pop_min,pop_max&include_nulls=0"
+            ]
+          }
+        },
+        "layers": [
+          {
+            "id": "citiesandtowns2-layer",
+            "type": "circle",
+            "source": "citiesandtowns2:source",
+            "source-layer": "public.ne_10m_populated_places",
+            "paint": {
+              "circle-radius": [
+                "interpolate",
+                [
+                  "exponential",
+                  2
+                ],
+                [
+                  "zoom"
+                ],
+                0,
+                [
+                  "+",
+                  1,
+                  [
+                    "*",
+                    0.00025,
+                    [
+                      "sqrt",
+                      [
+                        "get",
+                        "pop_max"
+                      ]
+                    ]
+                  ]
+                ],
+                6,
+                [
+                  "*",
+                  0.016,
+                  [
+                    "sqrt",
+                    [
+                      "get",
+                      "pop_max"
+                    ]
+                  ]
+                ],
+                14,
+                [
+                  "*",
+                  0.016,
+                  [
+                    "sqrt",
+                    [
+                      "get",
+                      "pop_max"
+                    ]
+                  ]
+                ]
+              ],
+              "circle-color": "red",
+              "circle-stroke-color": "white",
+              "circle-stroke-width": 1,
+              "circle-pitch-alignment": "map"
+            },
+            "layout": {
+              "circle-sort-key": [
+                "-",
+                [
+                  "get",
+                  "pop_max"
+                ]
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam",
+                "unit": ""
+              },
+              {
+                "name": "name_nl",
+                "translation": "Nederlandse naam",
+                "unit": ""
+              },
+              {
+                "name": "timezone",
+                "translation": "tijdzone",
+                "unit": ""
+              },
+              {
+                "name": "pop_min",
+                "translation": "stedelijke bevolking (minimaal)",
+                "unit": " inw"
+              },
+              {
+                "name": "pop_max",
+                "translation": "stedelijke bevolking (maximaal)",
+                "unit": " inw"
+              }
+            ]
+          },
+          "title": "Stedelijke bevolking",
+          "label": "Stedelijke bevolking"
+        }
+      },
+      {
+        "id": "countrydevelopments",
+        "title": "Economische ontwikkeling",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,economy&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89,
+              180,
+              83.6341006530001
+            ]
+          }
+        },
+        "layers": [
+          {
+            "id": "countrydevelopments-layer",
+            "type": "fill",
+            "source": "countrydevelopments:source",
+            "source-layer": "public.ne_10m_admin_0_countries",
+            "paint": {
+              "fill-color": [
+                "case",
+                [
+                  "==",
+                  [
+                    "get",
+                    "economy"
+                  ],
+                  "1. Developed region: G7"
+                ],
+                "#7f2704",
+                [
+                  "==",
+                  [
+                    "get",
+                    "economy"
+                  ],
+                  "2. Developed region: nonG7"
+                ],
+                "#a63603",
+                [
+                  "==",
+                  [
+                    "get",
+                    "economy"
+                  ],
+                  "3. Emerging region: BRIC"
+                ],
+                "#d94801",
+                [
+                  "==",
+                  [
+                    "get",
+                    "economy"
+                  ],
+                  "4. Emerging region: MIKT"
+                ],
+                "#f16913",
+                [
+                  "==",
+                  [
+                    "get",
+                    "economy"
+                  ],
+                  "5. Emerging region: G20"
+                ],
+                "#fd8d3c",
+                [
+                  "==",
+                  [
+                    "get",
+                    "economy"
+                  ],
+                  "6. Developing region"
+                ],
+                "#fdae6b",
+                [
+                  "==",
+                  [
+                    "get",
+                    "economy"
+                  ],
+                  "7. Least developed region"
+                ],
+                "#fdd0a2",
+                "#fdd0a2"
+              ],
+              "fill-outline-color": "white",
+              "fill-opacity": 0.8
+            }
+          }
+        ],
+        "metadata": {
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam",
+                "unit": ""
+              },
+              {
+                "name": "gdp_md_est",
+                "translation": "BBP",
+                "unit": " miljoen $"
+              },
+              {
+                "name": "gdp_p_cap",
+                "translation": "BBP per inw",
+                "unit": " $"
+              },
+              {
+                "name": "economy",
+                "translation": "Economische categorie",
+                "unit": ""
+              }
+            ]
+          },
+          "title": "Economische ontwikkeling",
+          "label": "Economische ontwikkeling"
+        }
+      },
+      {
+        "id": "countrygdp",
+        "title": "Bruto Binnenlands Product",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geompoint&columns=name,gdp_md_est,gdp_p_cap,economy&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89,
+              180,
+              83.6341006530001
+            ]
+          }
+        },
+        "layers": [
+          {
+            "id": "countrygdp-layer",
+            "type": "circle",
+            "source": "countrygdp:source",
+            "source-layer": "public.ne_10m_admin_0_countries",
+            "paint": {
+              "circle-radius": [
+                "*",
+                0.01,
+                [
+                  "sqrt",
+                  [
+                    "get",
+                    "gdp_md_est"
+                  ]
+                ]
+              ],
+              "circle-color": "#6e016b",
+              "circle-stroke-color": "white",
+              "circle-stroke-width": 1,
+              "circle-pitch-alignment": "map"
+            },
+            "layout": {
+              "circle-sort-key": [
+                "-",
+                [
+                  "get",
+                  "gdp_md_est"
+                ]
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam",
+                "unit": ""
+              },
+              {
+                "name": "gdp_md_est",
+                "translation": "BBP",
+                "unit": " miljoen $"
+              },
+              {
+                "name": "gdp_p_cap",
+                "translation": "BBP per inw",
+                "unit": " $"
+              },
+              {
+                "name": "economy",
+                "translation": "Economische categorie",
+                "unit": ""
+              }
+            ]
+          },
+          "title": "Bruto Binnenlands Product",
+          "label": "Bruto Binnenlands Product"
+        }
+      },
+      {
+        "id": "countrygdpcap",
+        "title": "Bruto Binnenlands Product per inwoner",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,gdp_md_est,gdp_p_cap,economy&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89,
+              180,
+              83.6341006530001
+            ]
+          }
+        },
+        "layers": [
+          {
+            "id": "countrygdpcap-layer",
+            "type": "fill",
+            "source": "countrygdpcap:source",
+            "source-layer": "public.ne_10m_admin_0_countries",
+            "paint": {
+              "fill-color": [
+                "case",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  2000
+                ],
+                "#f7fcfd",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  4000
+                ],
+                "#e0ecf4",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  8500
+                ],
+                "#bfd3e6",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  14000
+                ],
+                "#9ebcda",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  20000
+                ],
+                "#8c96c6",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  30000
+                ],
+                "#8c6bb1",
+                [
+                  "<",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  45000
+                ],
+                "#88419d",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "gdp_p_cap"
+                  ],
+                  250351
+                ],
+                "#6e016b",
+                "#6e016b"
+              ],
+              "fill-outline-color": "white",
+              "fill-opacity": 0.8
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Bruto binnenlands product volgens Natural Earth, 2013 - 2016, gecorrigeerd voor koopkrachtpariteit in $",
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "naam",
+                "unit": ""
+              },
+              {
+                "name": "gdp_md_est",
+                "translation": "BBP",
+                "unit": " miljoen $"
+              },
+              {
+                "name": "gdp_p_cap",
+                "translation": "BBP per inw",
+                "unit": " $"
+              },
+              {
+                "name": "economy",
+                "translation": "Economische categorie",
+                "unit": ""
+              }
+            ]
+          },
+          "title": "Bruto Binnenlands Product per inwoner",
+          "label": "Bruto Binnenlands Product per inwoner"
+        }
+      },
+      {
+        "id": "df104f3d-e312-447d-9768-36cf5313b4fb",
+        "title": "Zon",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Zon.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "df104f3d-e312-447d-9768-36cf5313b4fb-layer",
+            "type": "circle",
+            "source": "df104f3d-e312-447d-9768-36cf5313b4fb:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(227.956,227.956,19.517,1)",
+              "circle-stroke-color": "rgba(0,0,0,1)",
+              "circle-stroke-width": 0.3
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Zon",
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Zon"
+        }
+      },
+      {
+        "id": "801bfd79-71a3-47f4-ac29-2b7843263c7c",
+        "title": "Wind",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Wind.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "801bfd79-71a3-47f4-ac29-2b7843263c7c-layer",
+            "type": "circle",
+            "source": "801bfd79-71a3-47f4-ac29-2b7843263c7c:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(83.167,211.817,126.859,1)",
+              "circle-stroke-width": 0.7
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Wind",
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Wind"
+        }
+      },
+      {
+        "id": "cb36d79a-7f8b-47ff-b0af-03a641fb959d",
+        "title": "Waterkracht",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Waterkracht.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "cb36d79a-7f8b-47ff-b0af-03a641fb959d-layer",
+            "type": "circle",
+            "source": "cb36d79a-7f8b-47ff-b0af-03a641fb959d:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(0,165.6,252.163,1)",
+              "circle-stroke-width": 1.6,
+              "circle-stroke-color": "rgba(0,0,0,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Waterkracht",
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Waterkracht"
+        }
+      },
+      {
+        "id": "4c78e3b6-8408-4e1e-b033-ba412fcfe544",
+        "title": "Warmtekracht_koppeling",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Warmtekracht_koppeling.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "4c78e3b6-8408-4e1e-b033-ba412fcfe544-layer",
+            "type": "circle",
+            "source": "4c78e3b6-8408-4e1e-b033-ba412fcfe544:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(220.559,44.861,44.861,1)",
+              "circle-stroke-color": "rgba(236.697,236.697,236.697,1)",
+              "circle-stroke-width": 2
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Warmtekracht_koppeling",
+          "maplayeropen": false,
+          "visible": true,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Warmtekracht_koppeling"
+        }
+      },
+      {
+        "id": "daa1623d-dac8-4759-8c05-c624249b3c04",
+        "title": "Petcokes",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Petcokes.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "daa1623d-dac8-4759-8c05-c624249b3c04-layer",
+            "type": "circle",
+            "source": "daa1623d-dac8-4759-8c05-c624249b3c04:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(103,58,183,1)",
+              "circle-stroke-width": 1.1,
+              "circle-stroke-color": "rgba(255,255,255,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Petcokes",
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Petcokes"
+        }
+      },
+      {
+        "id": "51bb4cad-1309-4b31-9af4-ccbd8f5b1d4e",
+        "title": "Overig",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Overig.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "51bb4cad-1309-4b31-9af4-ccbd8f5b1d4e-layer",
+            "type": "circle",
+            "source": "51bb4cad-1309-4b31-9af4-ccbd8f5b1d4e:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(40.905,137.233,159.367,1)",
+              "circle-stroke-width": 1.6,
+              "circle-stroke-color": "rgba(0,165.6,252.163,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Overig",
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Overig"
+        }
+      },
+      {
+        "id": "f9720b91-5709-40bb-9b15-add9187f372b",
+        "title": "Opslag",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Opslag.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "f9720b91-5709-40bb-9b15-add9187f372b-layer",
+            "type": "circle",
+            "source": "f9720b91-5709-40bb-9b15-add9187f372b:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(255,255,255,1)",
+              "circle-stroke-width": 2.1
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Opslag",
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Opslag"
+        }
+      },
+      {
+        "id": "0f507d18-f72c-46df-8a35-91eebac591af",
+        "title": "Olie",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Olie.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "0f507d18-f72c-46df-8a35-91eebac591af-layer",
+            "type": "circle",
+            "source": "0f507d18-f72c-46df-8a35-91eebac591af:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(0,0,0,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Olie",
+          "maplayeropen": false,
+          "visible": true,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Olie"
+        }
+      },
+      {
+        "id": "42ea2a81-9e5e-46b2-b160-976f14953eea",
+        "title": "Kolen",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Kolen.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "42ea2a81-9e5e-46b2-b160-976f14953eea-layer",
+            "type": "circle",
+            "source": "42ea2a81-9e5e-46b2-b160-976f14953eea:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(135.159,101.369,0,1)",
+              "circle-stroke-width": 1
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Kolen",
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Kolen"
+        }
+      },
+      {
+        "id": "504cd4dd-c3c7-4434-ab1e-3eb95959b5e3",
+        "title": "Kern",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Kern.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "504cd4dd-c3c7-4434-ab1e-3eb95959b5e3-layer",
+            "type": "circle",
+            "source": "504cd4dd-c3c7-4434-ab1e-3eb95959b5e3:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(153.015,95.648,255,1)",
+              "circle-stroke-width": 1.4
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Kern",
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Kern"
+        }
+      },
+      {
+        "id": "459f1527-b808-4d7a-bc4d-abffcd687ec8",
+        "title": "Huisvuil",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Huisvuil.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "459f1527-b808-4d7a-bc4d-abffcd687ec8-layer",
+            "type": "circle",
+            "source": "459f1527-b808-4d7a-bc4d-abffcd687ec8:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(48.316,123.056,73.699,1)",
+              "circle-stroke-width": 0.9
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Huisvuil",
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Huisvuil"
+        }
+      },
+      {
+        "id": "b1defc0f-456c-45fd-a140-835905c4dbe4",
+        "title": "Golf_Getijde",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Golf_Getijde.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "b1defc0f-456c-45fd-a140-835905c4dbe4-layer",
+            "type": "circle",
+            "source": "b1defc0f-456c-45fd-a140-835905c4dbe4:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(38.513,227.956,212.198,1)",
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "rgba(0,153.345,166.091,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Golf_Getijde",
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Golf_Getijde"
+        }
+      },
+      {
+        "id": "c6a98886-feaa-443c-991f-f35a43888192",
+        "title": "Geothermie",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Geothermie.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "c6a98886-feaa-443c-991f-f35a43888192-layer",
+            "type": "circle",
+            "source": "c6a98886-feaa-443c-991f-f35a43888192:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(255,49.793,49.793,1)",
+              "circle-stroke-width": 1.7,
+              "circle-stroke-color": "rgba(255,193,7,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Geothermie",
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Geothermie"
+        }
+      },
+      {
+        "id": "93d12b48-7397-4789-9c7a-402ec50bb116",
+        "title": "Gas",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Gas.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "93d12b48-7397-4789-9c7a-402ec50bb116-layer",
+            "type": "circle",
+            "source": "93d12b48-7397-4789-9c7a-402ec50bb116:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(139.194,139.194,139.194,1)",
+              "circle-stroke-color": "rgba(220.559,44.861,44.861,1)",
+              "circle-stroke-width": 1.2
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Gas",
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Gas"
+        }
+      },
+      {
+        "id": "8a5648b1-2161-49ff-8bbc-383798de7be6",
+        "title": "Biomassa",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/world/Biomassa.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "8a5648b1-2161-49ff-8bbc-383798de7be6-layer",
+            "type": "circle",
+            "source": "8a5648b1-2161-49ff-8bbc-383798de7be6:source",
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "rgba(171.471,128.603,0,1)",
+              "circle-stroke-width": 1.5,
+              "circle-stroke-color": "rgba(77.183,57.887,0,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Biomassa",
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Biomassa"
+        }
+      },
+      {
+        "id": "water-en-waterwegen",
+        "title": "Water en waterwegen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightwater.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "waternamen",
+        "title": "Waternamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightwatername.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "administratieve-grenzen",
+        "title": "Administratieve grenzen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightadminborders.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "landnamen",
+        "title": "Landnamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightcountrynames.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "landnamen-nl",
+        "title": "Landnamen (nl)",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightcountrynames_nl.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "snelwegen",
+        "title": "Snelwegen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightroads.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "snelwegnamen",
+        "title": "Snelwegnamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/brightmotorwayname.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "wegen",
+        "title": "Wegen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightallroads.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "wegnamen",
+        "title": "Wegnamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightallroadnames.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "spoorwegen",
+        "title": "Spoorwegen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightrail.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "plaatsen",
+        "title": "Plaatsen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightpoi.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "plaatsnamen",
+        "title": "Plaatsnamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightpoiname.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "gebouwen",
+        "title": "Gebouwen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/v2/maps/layers/osmbrightbuildings.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "webmapx-terrain-hillshade",
+        "type": "hillshade",
+        "source": "mapzenhillshading:source",
+        "title": "Relief",
+        "paint": {
+          "hillshade-exaggeration": 0.2
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeBackground": "esriworldimagery",
+    "activeLayers": [
+      {
+        "ref": "esriworldimagery",
+        "visible": true
+      },
+      {
+        "ref": "webmapx-terrain-hillshade",
+        "visible": true
+      }
+    ],
+    "activeExclusiveLayers": {
+      "basemap": "esriworldimagery"
+    },
+    "terrainEnabled": true
+  },
+  "_devTools": {
+    "configedit": false
+  },
+  "tools": {
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "panel": {
+        "enabled": true,
+        "position": "after"
+      },
+      "items": [
+        {
+          "id": "search",
+          "type": "search",
+          "enabled": true,
+          "title": "Search",
+          "provider": "nominatim",
+          "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim"
+        },
+        {
+          "id": "layers",
+          "type": "layerTree",
+          "enabled": true,
+          "title": "Catalog",
+          "tree": [
+            {
+              "label": "Achtergrondlagen",
+              "children": [
+                {
+                  "label": "Luchtfoto- en satellietachtergrond",
+                  "separator": true
+                },
+                {
+                  "label": "Wereld (ESRI World Imagery)",
+                  "layerId": "esriworldimagery",
+                  "selectionGroup": "basemap",
+                  "checked": true
+                },
+                {
+                  "label": "Wereld (Mapbox)",
+                  "layerId": "satellite",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Wereld (Bing)",
+                  "layerId": "bingmapaerial",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Topografische achtergrondlagen",
+                  "separator": true
+                },
+                {
+                  "label": "Standaard (OSM)",
+                  "layerId": "openstreetmap",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Grijs (OSM)",
+                  "layerId": "openstreetmapgray",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Helder (OSM)",
+                  "layerId": "osmbright",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Standaard (Bing)",
+                  "layerId": "bingmaproad",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Hybride (Bing)",
+                  "layerId": "bingmaphybrid",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                }
+              ],
+              "selectionMode": "single",
+              "selectionGroup": "basemap",
+              "allowNone": false
+            },
+            {
+              "label": "Geografische lijnen",
+              "children": [
+                {
+                  "label": "Evenaar | Keerkringen | Poolcirkels",
+                  "layerId": "geographiclines"
+                },
+                {
+                  "label": "Breedtegraden",
+                  "layerId": "d48b75ca-0b0f-4531-91df-718316a866c6"
+                },
+                {
+                  "label": "Lengtegraden ",
+                  "layerId": "19524964-dae4-40e9-b97c-254291b0760f"
+                },
+                {
+                  "label": "Tijdzones",
+                  "layerId": "timezones"
+                }
+              ]
+            },
+            {
+              "label": "Natuur en Milieu",
+              "children": [
+                {
+                  "label": "Relief",
+                  "layerId": "mapzenhillshading"
+                },
+                {
+                  "label": "Landbedekking",
+                  "layerId": "worldlandcover"
+                },
+                {
+                  "label": "Rivieren",
+                  "children": [
+                    {
+                      "label": "Stroomgebieden",
+                      "layerId": "dda1f252-38cf-4842-a60f-472fbb44b8e9"
+                    },
+                    {
+                      "label": "Stroomstelsels",
+                      "layerId": "lakesandrivers"
+                    }
+                  ]
+                },
+                {
+                  "label": "Weerkaarten | realtime",
+                  "children": [
+                    {
+                      "label": "Temperatuur",
+                      "layerId": "openweathermaptemperature-new"
+                    },
+                    {
+                      "label": "Neerslag",
+                      "layerId": "openweathermapprecipitation-new"
+                    },
+                    {
+                      "label": "Bewolking",
+                      "layerId": "openweathermapcloudes-new"
+                    },
+                    {
+                      "label": "Luchtdruk",
+                      "layerId": "openweathermappressure-new"
+                    },
+                    {
+                      "label": "Windsnelheid",
+                      "layerId": "openweathermapwind-new"
+                    }
+                  ]
+                },
+                {
+                  "label": "Klimaat",
+                  "children": [
+                    {
+                      "label": "Klimaat Koppen 2017",
+                      "layerId": "cd35f895-2af4-1111-b996-aa6d820b0a89"
+                    },
+                    {
+                      "label": "Klimaat Koppen 2007",
+                      "layerId": "koppen-klimaat-kaart"
+                    },
+                    {
+                      "label": "Mondiale luchtstroming",
+                      "layerId": "624eeac3-d7cf-4d0f-86c0-5527fb062aeb"
+                    },
+                    {
+                      "label": "Oceaanstroming",
+                      "layerId": "cd1ae11e-6625-439a-a6ee-decccd44634e"
+                    },
+                    {
+                      "label": "Thermohaliene circulatie",
+                      "layerId": "cd1ae11e-7725-439a-a6ee-decccd44634e"
+                    },
+                    {
+                      "label": "Afzinkgebieden",
+                      "layerId": "cd1ae11e-2425-439a-a6ee-decccd44634e"
+                    },
+                    {
+                      "label": "Opwellend water",
+                      "layerId": "cd1ae11e-8725-439a-a6ee-decccd44634e"
+                    },
+                    {
+                      "label": "Neerslag gemiddeld (jaarlijks)",
+                      "layerId": "neerslag-jaarlijks-gemiddeld"
+                    },
+                    {
+                      "label": "Neerslag Januari",
+                      "layerId": "b48d1c09-7dc7-4d1d-b44b-f777400c4472"
+                    },
+                    {
+                      "label": "Neerslag Juli",
+                      "layerId": "448d1c09-8000-4d1d-b44b-f777400c4476"
+                    },
+                    {
+                      "label": "Temperatuur Januari",
+                      "layerId": "c9473b4b-e1b4-4f15-918a-a7f1cedf03dc"
+                    },
+                    {
+                      "label": "Temperatuur Juli",
+                      "layerId": "9b687f17-c174-4436-a706-3b4ead044845"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "label": "Politiek",
+              "children": [
+                {
+                  "label": "Landen",
+                  "layerId": "countryborders"
+                },
+                {
+                  "label": "Staten en provincies",
+                  "layerId": "districtborders"
+                }
+              ]
+            },
+            {
+              "label": "Bevolking",
+              "children": [
+                {
+                  "label": "Inwonertal per land",
+                  "layerId": "countrypopest"
+                },
+                {
+                  "label": "Bevolkingsdichtheid | Landen",
+                  "layerId": "countrypopdensity"
+                },
+                {
+                  "label": "Bevolkingsdichtheid | Raster",
+                  "layerId": "bevolking2015"
+                },
+                {
+                  "label": "Bevolkingsdichtheid | Regio",
+                  "layerId": "populationdensity"
+                },
+                {
+                  "label": "Bevolkingsdichtheid | Regio 3D",
+                  "layerId": "population3d"
+                },
+                {
+                  "label": "Bevolkingsdichtheid | Stippenkaart",
+                  "layerId": "populationsum"
+                },
+                {
+                  "label": "Stedelijke bevolking",
+                  "layerId": "citiesandtowns2"
+                }
+              ]
+            },
+            {
+              "label": "Economie",
+              "children": [
+                {
+                  "label": "Economische ontwikkeling",
+                  "layerId": "countrydevelopments"
+                },
+                {
+                  "label": "Bruto Binnenlands Product",
+                  "layerId": "countrygdp"
+                },
+                {
+                  "label": "Bruto Binnenlands Product per inwoner",
+                  "layerId": "countrygdpcap"
+                }
+              ]
+            },
+            {
+              "label": "Energie",
+              "children": [
+                {
+                  "label": "Zon",
+                  "layerId": "df104f3d-e312-447d-9768-36cf5313b4fb"
+                },
+                {
+                  "label": "Wind",
+                  "layerId": "801bfd79-71a3-47f4-ac29-2b7843263c7c"
+                },
+                {
+                  "label": "Waterkracht",
+                  "layerId": "cb36d79a-7f8b-47ff-b0af-03a641fb959d"
+                },
+                {
+                  "label": "Warmtekracht_koppeling",
+                  "layerId": "4c78e3b6-8408-4e1e-b033-ba412fcfe544"
+                },
+                {
+                  "label": "Petcokes",
+                  "layerId": "daa1623d-dac8-4759-8c05-c624249b3c04"
+                },
+                {
+                  "label": "Overig",
+                  "layerId": "51bb4cad-1309-4b31-9af4-ccbd8f5b1d4e"
+                },
+                {
+                  "label": "Opslag",
+                  "layerId": "f9720b91-5709-40bb-9b15-add9187f372b"
+                },
+                {
+                  "label": "Olie",
+                  "layerId": "0f507d18-f72c-46df-8a35-91eebac591af"
+                },
+                {
+                  "label": "Kolen",
+                  "layerId": "42ea2a81-9e5e-46b2-b160-976f14953eea"
+                },
+                {
+                  "label": "Kern",
+                  "layerId": "504cd4dd-c3c7-4434-ab1e-3eb95959b5e3"
+                },
+                {
+                  "label": "Huisvuil",
+                  "layerId": "459f1527-b808-4d7a-bc4d-abffcd687ec8"
+                },
+                {
+                  "label": "Golf_Getijde",
+                  "layerId": "b1defc0f-456c-45fd-a140-835905c4dbe4"
+                },
+                {
+                  "label": "Geothermie",
+                  "layerId": "c6a98886-feaa-443c-991f-f35a43888192"
+                },
+                {
+                  "label": "Gas",
+                  "layerId": "93d12b48-7397-4789-9c7a-402ec50bb116"
+                },
+                {
+                  "label": "Biomassa",
+                  "layerId": "8a5648b1-2161-49ff-8bbc-383798de7be6"
+                }
+              ]
+            },
+            {
+              "label": "Topografie lagen",
+              "children": [
+                {
+                  "label": "Water en waterwegen",
+                  "layerId": "water-en-waterwegen"
+                },
+                {
+                  "label": "Waternamen",
+                  "layerId": "waternamen"
+                },
+                {
+                  "label": "Administratieve grenzen",
+                  "layerId": "administratieve-grenzen"
+                },
+                {
+                  "label": "Landnamen",
+                  "layerId": "landnamen"
+                },
+                {
+                  "label": "Landnamen (nl)",
+                  "layerId": "landnamen-nl"
+                },
+                {
+                  "label": "Snelwegen",
+                  "layerId": "snelwegen"
+                },
+                {
+                  "label": "Snelwegnamen",
+                  "layerId": "snelwegnamen"
+                },
+                {
+                  "label": "Wegen",
+                  "layerId": "wegen"
+                },
+                {
+                  "label": "Wegnamen",
+                  "layerId": "wegnamen"
+                },
+                {
+                  "label": "Spoorwegen",
+                  "layerId": "spoorwegen"
+                },
+                {
+                  "label": "Plaatsen",
+                  "layerId": "plaatsen"
+                },
+                {
+                  "label": "Plaatsnamen",
+                  "layerId": "plaatsnamen"
+                },
+                {
+                  "label": "Gebouwen",
+                  "layerId": "gebouwen"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "measure",
+          "type": "measure",
+          "enabled": true,
+          "title": "Measure"
+        },
+        {
+          "id": "info",
+          "type": "info",
+          "enabled": true,
+          "title": "Feature info"
+        },
+        {
+          "id": "3d",
+          "type": "3d",
+          "enabled": true,
+          "title": "3D"
+        },
+        {
+          "id": "view-mode",
+          "type": "view-mode",
+          "enabled": false,
+          "title": "Projection"
+        },
+        {
+          "id": "draw",
+          "type": "draw",
+          "enabled": false,
+          "title": "Draw"
+        },
+        {
+          "id": "import-layer",
+          "type": "import-layer",
+          "enabled": false,
+          "title": "Import layer"
+        }
+      ]
+    },
+    "attribution": {
+      "type": "attributionControl",
+      "enabled": true,
+      "position": "edge-bottom-left"
+    },
+    "coordinates": {
+      "type": "coordinates",
+      "enabled": false,
+      "position": "bottom-center",
+      "defaultFormat": "geographic-en"
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "bottom-left",
+      "direction": "vertical",
+      "orientation": "vertical"
+    },
+    "scale": {
+      "type": "scaleControl",
+      "enabled": true,
+      "position": "bottom-right",
+      "maxWidth": 140,
+      "margin": "0 0 5px 0"
+    },
+    "zoomLevel": {
+      "type": "zoomLevel",
+      "enabled": false,
+      "position": "bottom-left"
+    },
+    "spinner": {
+      "type": "spinner",
+      "enabled": true,
+      "position": "middle-center"
+    },
+    "legendToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-right",
+      "orientation": "vertical",
+      "tooltipPlacement": "left",
+      "panel": {
+        "enabled": true,
+        "position": "after",
+        "opened": false
+      },
+      "items": [
+        {
+          "id": "legend",
+          "type": "layerOverview",
+          "enabled": true,
+          "title": "Legend"
+        }
+      ]
+    }
+  }
+}

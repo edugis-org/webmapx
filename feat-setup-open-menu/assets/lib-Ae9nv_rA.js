@@ -1,0 +1,1 @@
+import{Jt as e}from"./openlayers-adapter-BNVtpw3n.js";export{e as default};

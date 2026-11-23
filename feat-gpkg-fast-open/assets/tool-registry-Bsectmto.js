@@ -1,0 +1,1 @@
+import{hi as e,vi as t}from"./webmapx-shared-CnQMVLGG.js";export{e as STANDALONE_TAGS,t as TOOL_ELEMENT_TAGS};
